@@ -1,191 +1,335 @@
-const express = require('express')
-const cors = require('cors')
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const {
+  verificarToken,
+  verificarAdmin,
+  verificarSuperAdmin,
+} = require('./middlewares/auth');
+const isbnRoutes = require('./routes/isbn.routes');
 
-const app = express()
-app.use(cors())
-app.use(express.json())
+const app = express();
+const PUERTO = process.env.PORT || 3001;
+
+// Si falta el secreto, el login falla con un error confuso en tiempo de
+// ejecución. Mejor no arrancar y decir exactamente qué falta.
+if (!process.env.JWT_SECRET) {
+  console.error('Falta JWT_SECRET en el .env. El servidor no puede arrancar.');
+  process.exit(1);
+}
+
+app.use(cors());
+
+// Guardamos el body crudo además del parseado: el webhook de pagos necesita
+// el texto original para verificar la firma del proveedor.
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
+
+/* ============================================================
+   DATOS EN MEMORIA (temporal, hasta conectar MySQL)
+   ============================================================ */
+
+const planes = [];
+const usuariosDB = [];
+const organizacionesDB = [];
+const configuracionesDB = [];
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
+const buscarPorId = (array, id) => {
+  const idNum = parseInt(id);
+  if (isNaN(idNum)) return undefined;
+  return array.find((item) => item.id === idNum);
+};
+
+/**
+ * verificarAdmin confirma que sos admin, pero no de CUÁL organización.
+ * Sin este chequeo, el admin del liceo A puede leer los datos del liceo B
+ * cambiando el :id en la URL. Como el sistema se vende a varias
+ * instituciones, eso sería una fuga de datos entre clientes.
+ */
+const esDeMiOrganizacion = (req, idOrganizacion) => {
+  if (req.usuario.rol === 'super-admin') return true;
+  return req.usuario.organizacionId === parseInt(idOrganizacion);
+};
+
+// Placeholder para los endpoints que todavía no tienen lógica.
+// Sin esto, la petición queda colgada hasta el timeout y parece que el
+// servidor se murió, cuando en realidad nunca respondió.
+const sinImplementar = (req, res) =>
+  res.status(501).json({
+    error: 'no_implementado',
+    mensaje: `${req.method} ${req.originalUrl} todavía no está implementado.`,
+  });
+
+/* ============================================================
+   ISBN — autocompletado de libros
+   ============================================================ */
+
+app.use('/api/libros', isbnRoutes);
+
+/* ============================================================
+   SALUD
+   ============================================================ */
+
+app.get('/api/salud', (req, res) => res.json({ ok: true }));
 
 /* ============================================================
    PAGOS
    ============================================================ */
 
-// POST /pagos/checkout - Iniciar el pago de un plan (público, sin cuenta)
-app.post('/pagos/checkout', (req, res) => {
+// POST /api/pagos/checkout - Iniciar el pago de un plan (público, sin cuenta)
+app.post('/api/pagos/checkout', sinImplementar);
 
-})
-
-// POST /pagos/webhook - Confirmar pago y crear organización + user admin
-app.post('/pagos/webhook', (req, res) => {
-
-})
+// POST /api/pagos/webhook - Confirmar pago y crear organización + usuario admin
+// Los webhooks no se protegen con JWT de usuario, sino verificando la firma
+// que manda el proveedor de pagos (ej: header Stripe-Signature) contra req.rawBody.
+app.post('/api/pagos/webhook', sinImplementar);
 
 /* ============================================================
    PLANES
    ============================================================ */
 
-// GET /planes - Listar todos los planes (público)
-app.get('/planes', (req, res) => {
+// GET /api/planes - Listar todos los planes (público)
+app.get('/api/planes', (req, res) => {
+  res.json(planes);
+});
 
-})
+// GET /api/planes/:id - Ver un plan específico (público)
+app.get('/api/planes/:id', (req, res) => {
+  const plan = buscarPorId(planes, req.params.id);
 
-// GET /planes/:id - Ver un plan específico (público)
-app.get('/planes/:id', (req, res) => {
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan no encontrado' });
+  }
 
-})
+  res.json(plan);
+});
 
-// POST /planes - Crear un nuevo plan (solo super-admin)
-app.post('/planes', (req, res) => {
+// POST /api/planes - Crear un nuevo plan (solo super-admin)
+app.post('/api/planes', verificarToken, verificarSuperAdmin, sinImplementar);
 
-})
+// PUT /api/planes/:id - Editar valores de un plan (solo super-admin)
+app.put('/api/planes/:id', verificarToken, verificarSuperAdmin, sinImplementar);
 
-// PUT /planes/:id - Editar valores de un plan (solo super-admin)
-app.put('/planes/:id', (req, res) => {
-
-})
-
-// DELETE /planes/:id - Eliminar un plan específico (solo super-admin)
-app.delete('/planes/:id', (req, res) => {
-
-})
+// DELETE /api/planes/:id - Eliminar un plan específico (solo super-admin)
+app.delete('/api/planes/:id', verificarToken, verificarSuperAdmin, sinImplementar);
 
 /* ============================================================
    ADMINISTRADORES DE PLATAFORMA
    ============================================================ */
 
-// GET /admin/usuarios - Listar usuarios de todas las organizaciones (solo super-admin)
-app.get('/admin/usuarios', (req, res) => {
-
-})
+// GET /api/admin/usuarios - Listar usuarios de todas las organizaciones (super-admin)
+app.get('/api/admin/usuarios', verificarToken, verificarSuperAdmin, (req, res) => {
+  res.json(usuariosDB);
+});
 
 /* ============================================================
    ORGANIZACIONES
    ============================================================ */
 
-// POST /organizaciones - Crear una nueva organización (uso interno / super-admin)
-app.post('/organizaciones', (req, res) => {
+// POST /api/organizaciones - Crear una nueva organización (super-admin)
+app.post('/api/organizaciones', verificarToken, verificarSuperAdmin, sinImplementar);
 
-})
+// GET /api/organizaciones - Listar todas las organizaciones (super-admin)
+app.get('/api/organizaciones', verificarToken, verificarSuperAdmin, sinImplementar);
 
-// GET /organizaciones - Listar todas las organizaciones (solo super-admin)
-app.get('/organizaciones', (req, res) => {
+// GET /api/organizaciones/:id - Obtener datos de la organización (admin de esa organización)
+app.get('/api/organizaciones/:id', verificarToken, verificarAdmin, (req, res) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
 
-})
+  const organizacion = buscarPorId(organizacionesDB, req.params.id);
 
-// GET /organizaciones/:id - Obtener datos de la organización
-app.get('/organizaciones/:id', (req, res) => {
+  if (!organizacion) {
+    return res.status(404).json({ error: 'Organizacion no encontrada' });
+  }
 
-})
+  res.json(organizacion);
+});
 
-// PUT /organizaciones/:id - Editar valores de una organización (admin)
-app.put('/organizaciones/:id', (req, res) => {
+// PUT /api/organizaciones/:id - Editar valores de una organización (admin)
+app.put('/api/organizaciones/:id', verificarToken, verificarAdmin, (req, res) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  sinImplementar(req, res);
+});
 
-})
-
-// DELETE /organizaciones/:id - Eliminar organización (admin)
-app.delete('/organizaciones/:id', (req, res) => {
-
-})
+// DELETE /api/organizaciones/:id - Eliminar organización (admin)
+app.delete('/api/organizaciones/:id', verificarToken, verificarAdmin, (req, res) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  sinImplementar(req, res);
+});
 
 /* ============================================================
    CONFIGURACIÓN DE ORGANIZACIONES (anidada)
+   Ojo: el :id de estas rutas es el de la ORGANIZACIÓN,
+   no el de la configuración.
    ============================================================ */
 
-// POST /organizaciones/:id/configuracion - Crear una nueva configuración (admin)
-app.post('/organizaciones/:id/configuracion', (req, res) => {
+// POST /api/organizaciones/:id/configuracion - Crear configuración (admin)
+app.post('/api/organizaciones/:id/configuracion', verificarToken, verificarAdmin, (req, res) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  sinImplementar(req, res);
+});
 
-})
+// GET /api/organizaciones/:id/configuracion - Obtener configuración (admin)
+app.get('/api/organizaciones/:id/configuracion', verificarToken, verificarAdmin, (req, res) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
 
-// GET /organizaciones/:id/configuracion - Obtener configuración de una organización
-app.get('/organizaciones/:id/configuracion', (req, res) => {
+  const configuracion = configuracionesDB.find(
+    (c) => c.organizacionId === parseInt(req.params.id)
+  );
 
-})
+  if (!configuracion) {
+    return res.status(404).json({ error: 'Configuracion no encontrada' });
+  }
 
-// PUT /organizaciones/:id/configuracion - Editar una configuración de organización (admin)
-app.put('/organizaciones/:id/configuracion', (req, res) => {
+  res.json(configuracion);
+});
 
-})
+// PUT /api/organizaciones/:id/configuracion - Editar configuración (admin)
+app.put('/api/organizaciones/:id/configuracion', verificarToken, verificarAdmin, (req, res) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  sinImplementar(req, res);
+});
 
-// DELETE /organizaciones/:id/configuracion - Borrar una configuración de organización (admin)
-app.delete('/organizaciones/:id/configuracion', (req, res) => {
-
-})
+// DELETE /api/organizaciones/:id/configuracion - Borrar configuración (admin)
+app.delete('/api/organizaciones/:id/configuracion', verificarToken, verificarAdmin, (req, res) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  sinImplementar(req, res);
+});
 
 /* ============================================================
    USUARIOS
    ============================================================ */
 
-// POST /usuarios - Crear un nuevo usuario (público, con mail de dominio asociado)
-app.post('/usuarios', (req, res) => {
+// POST /api/usuarios - Crear un nuevo usuario (público, con mail de dominio asociado)
+app.post('/api/usuarios', sinImplementar);
 
-})
+// GET /api/usuarios - Listar usuarios de mi organización (admin)
+app.get('/api/usuarios', verificarToken, verificarAdmin, (req, res) => {
+  const usuariosDeMiOrg = usuariosDB.filter(
+    (u) => u.organizacionId === req.usuario.organizacionId
+  );
+  res.json(usuariosDeMiOrg);
+});
 
-// GET /usuarios - Listar usuarios de mi organización (admin)
-app.get('/usuarios', (req, res) => {
+// GET /api/usuarios/:id - Ver un usuario (el propio usuario, o admin de su organización)
+app.get('/api/usuarios/:id', verificarToken, (req, res) => {
+  const usuario = buscarPorId(usuariosDB, req.params.id);
 
-})
+  if (!usuario) {
+    return res.status(404).json({ error: 'Usuario no encontrado' });
+  }
 
-// GET /usuarios/:id - Ver un usuario específico (el propio usuario, o admin de su organización)
-app.get('/usuarios/:id', (req, res) => {
+  const esElPropio = req.usuario.id === usuario.id;
+  const esAdminDeSuOrg =
+    ['admin', 'super-admin'].includes(req.usuario.rol) &&
+    esDeMiOrganizacion(req, usuario.organizacionId);
 
-})
+  if (!esElPropio && !esAdminDeSuOrg) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
 
-// PUT /usuarios/:id - Editar valores de un usuario (el propio usuario, o admin de su organización)
-app.put('/usuarios/:id', (req, res) => {
+  // Nunca devolver el hash de la contraseña, ni siquiera al propio usuario.
+  const { password, ...usuarioSinPassword } = usuario;
+  res.json(usuarioSinPassword);
+});
 
-})
+// PUT /api/usuarios/:id - Editar un usuario (el propio usuario, o admin de su organización)
+app.put('/api/usuarios/:id', verificarToken, sinImplementar);
 
-// DELETE /usuarios/:id - Eliminar un usuario específico (el propio usuario, o admin de su organización)
-app.delete('/usuarios/:id', (req, res) => {
-
-})
+// DELETE /api/usuarios/:id - Eliminar un usuario (el propio usuario, o admin de su organización)
+app.delete('/api/usuarios/:id', verificarToken, sinImplementar);
 
 /* ============================================================
    AUTENTICACIÓN
    ============================================================ */
 
-// POST /auth/login - Iniciar sesión
-app.post('/auth/login', (req, res) => {
+// POST /api/auth/login - Iniciar sesión
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body ?? {};
 
-})
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Faltan email o contraseña' });
+  }
 
-// POST /auth/logout - Cerrar sesión
-app.post('/auth/logout', (req, res) => {
+  // Usuario de prueba, hasta que conectemos la base de datos real.
+  const usuarioMock = {
+    id: 1,
+    email: 'admin@anima.edu.uy',
+    password: '12345678',
+    rol: 'admin',
+    organizacionId: 1,
+  };
 
-})
+  if (email !== usuarioMock.email || password !== usuarioMock.password) {
+    return res.status(401).json({ error: 'Credenciales incorrectas' });
+  }
 
-// POST /auth/recuperar - Recuperar contraseña
-app.post('/auth/recuperar', (req, res) => {
+  const token = jwt.sign(
+    {
+      id: usuarioMock.id,
+      email: usuarioMock.email,
+      rol: usuarioMock.rol,
+      organizacionId: usuarioMock.organizacionId,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '2h' }
+  );
 
-})
+  res.json({ token });
+});
+
+// POST /api/auth/logout - Cerrar sesión
+// Con JWT stateless no hay nada que invalidar en el servidor;
+// el frontend borra el token guardado.
+app.post('/api/auth/logout', (req, res) => {
+  res.status(200).json({ mensaje: 'Sesión cerrada' });
+});
+
+// POST /api/auth/recuperar - Recuperar contraseña
+app.post('/api/auth/recuperar', sinImplementar);
 
 /* ============================================================
    LIBROS
    ============================================================ */
 
-// POST /libros - Crear un nuevo libro (admin)
-app.post('/libros', (req, res) => {
+// POST /api/libros - Crear un nuevo libro (admin)
+app.post('/api/libros', verificarToken, verificarAdmin, sinImplementar);
 
-})
+// GET /api/libros - Listar todos los libros (cualquier usuario autenticado)
+app.get('/api/libros', verificarToken, sinImplementar);
 
-// GET /libros - Listar todos los libros (cualquier usuario autenticado)
-app.get('/libros', (req, res) => {
+// GET /api/libros/:id - Ver un libro específico (cualquier usuario autenticado)
+app.get('/api/libros/:id', verificarToken, sinImplementar);
 
-})
+// PUT /api/libros/:id - Editar valores de un libro (admin)
+app.put('/api/libros/:id', verificarToken, verificarAdmin, sinImplementar);
 
-// GET /libros/:id - Ver un libro específico (cualquier usuario autenticado)
-app.get('/libros/:id', (req, res) => {
-
-})
-
-// PUT /libros/:id - Editar valores de un libro (admin)
-app.put('/libros/:id', (req, res) => {
-
-})
-
-// DELETE /libros/:id - Eliminar un libro específico (admin)
-app.delete('/libros/:id', (req, res) => {
-
-})
+// DELETE /api/libros/:id - Eliminar un libro específico (admin)
+app.delete('/api/libros/:id', verificarToken, verificarAdmin, sinImplementar);
 
 /* ============================================================
    PRÉSTAMOS
@@ -194,49 +338,53 @@ app.delete('/libros/:id', (req, res) => {
    como un valor de :id.
    ============================================================ */
 
-// GET /prestamos/mis-prestamos - Listar los préstamos del usuario autenticado
-//    admite ?estado=vencido para filtrar
-app.get('/prestamos/mis-prestamos', (req, res) => {
+// GET /api/prestamos/mis-prestamos - Préstamos del usuario autenticado
+//     admite ?estado=vencido para filtrar
+app.get('/api/prestamos/mis-prestamos', verificarToken, sinImplementar);
 
-})
+// GET /api/prestamos/mis-prestamos/:id - Ver un préstamo propio
+app.get('/api/prestamos/mis-prestamos/:id', verificarToken, sinImplementar);
 
-// GET /prestamos/mis-prestamos/:id - Ver un préstamo específico (cualquier usuario autenticado)
-app.get('/prestamos/mis-prestamos/:id', (req, res) => {
+// PATCH /api/prestamos/mis-prestamos/:id/extender - Extender plazo del préstamo
+app.patch('/api/prestamos/mis-prestamos/:id/extender', verificarToken, sinImplementar);
 
-})
+// POST /api/prestamos - Crear un nuevo préstamo (cualquier usuario autenticado)
+app.post('/api/prestamos', verificarToken, sinImplementar);
 
-// PATCH /prestamos/mis-prestamos/:id/extender - Extender plazo del préstamo
-app.patch('/prestamos/mis-prestamos/:id/extender', (req, res) => {
+// GET /api/prestamos - Listar todos los préstamos (admin), admite ?estado=vencido
+app.get('/api/prestamos', verificarToken, verificarAdmin, sinImplementar);
 
-})
+// GET /api/prestamos/:id - Ver un préstamo específico (admin)
+app.get('/api/prestamos/:id', verificarToken, verificarAdmin, sinImplementar);
 
-// POST /prestamos - Crear un nuevo préstamo (cualquier usuario autenticado)
-app.post('/prestamos', (req, res) => {
+// PATCH /api/prestamos/:id/devolver - Marcar préstamo como devuelto (admin)
+app.patch('/api/prestamos/:id/devolver', verificarToken, verificarAdmin, sinImplementar);
 
-})
+// DELETE /api/prestamos/:id - Eliminar un préstamo (admin)
+app.delete('/api/prestamos/:id', verificarToken, verificarAdmin, sinImplementar);
 
-// GET /prestamos - Listar todos los préstamos (admin), admite ?estado=vencido
-app.get('/prestamos', (req, res) => {
+/* ============================================================
+   MANEJO DE ERRORES
+   Van al final: Express los evalúa en orden y estos son la red
+   que atrapa todo lo que no matcheó antes.
+   ============================================================ */
 
-})
+// Ruta inexistente
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'ruta_no_encontrada',
+    mensaje: `No existe ${req.method} ${req.originalUrl}`,
+  });
+});
 
-// GET /prestamos/:id - Ver un préstamo específico (admin)
-app.get('/prestamos/:id', (req, res) => {
-
-})
-
-// PATCH /prestamos/:id/devolver - Marcar préstamo como devuelto (admin)
-app.patch('/prestamos/:id/devolver', (req, res) => {
-
-})
-
-// DELETE /prestamos/:id - Eliminar un préstamo (admin)
-app.delete('/prestamos/:id', (req, res) => {
-
-})
+// Cualquier error no capturado en un handler
+app.use((err, req, res, next) => {
+  console.error('[error]', err.message);
+  res.status(500).json({ error: 'error_interno' });
+});
 
 /* ============================================================ */
 
-app.listen(3001, () => {
-  console.log('Servidor en http://localhost:3001')
-})
+app.listen(PUERTO, () => {
+  console.log(`Servidor en http://localhost:${PUERTO}`);
+});
