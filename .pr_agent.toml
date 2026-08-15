@@ -1,0 +1,15 @@
+[config]
+response_language = "es-ES"
+
+[pr_reviewer]
+require_tests_review = true
+require_security_review = true
+num_max_findings = 100
+extra_instructions = "Responde siempre en español."
+
+[pr_description]
+extra_instructions = "Responde siempre en español."
+
+[pr_code_suggestions]
+commitable_code_suggestions = true
+extra_instructions = "Responde siempre en español."
