@@ -284,14 +284,20 @@ app.post('/api/auth/login', async (req, res) => {
     organizacionId: 1,
   };
 
-  if (email !== usuarioMock.email || password !== usuarioMock.password) {
+  if (!usuario) {
+    return res.status(401).json({ error: 'Credenciales incorrectas' });
+  }
+
+  const passwordCorrecta = await bcrypt.compare(contrasena, usuario.contrasena);
+
+  if (!passwordCorrecta) {
     return res.status(401).json({ error: 'Credenciales incorrectas' });
   }
 
   const token = jwt.sign(
     {
       id: usuarioMock.id,
-      email: usuarioMock.email,
+      email: usuarioMock.correo,
       rol: usuarioMock.rol,
       organizacionId: usuarioMock.organizacionId,
     },
