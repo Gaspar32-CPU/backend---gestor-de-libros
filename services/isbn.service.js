@@ -107,7 +107,7 @@ async function consultarGoogleBooks(isbn) {
   const info = data.items?.[0]?.volumeInfo;
   if (!info) return null;
 
-  return {
+  const libro = {
     fuente: "Google Books",
     titulo: [info.title, info.subtitle].filter(Boolean).join(": "),
     autor: info.authors?.join(", ") ?? "",
@@ -122,6 +122,7 @@ async function consultarGoogleBooks(isbn) {
         ?.replace("http://", "https://")
         .replace("&edge=curl", "") ?? "",
   };
+  return libro;
 }
 
 async function consultarOpenLibrary(isbn) {
@@ -131,23 +132,26 @@ async function consultarOpenLibrary(isbn) {
   if (!res.ok) throw new Error(`Open Library respondió ${res.status}`);
 
   const data = await res.json();
-  const libro = data[`ISBN:${isbn}`];
-  if (!libro) return null;
+  const libroCrudo = data[`ISBN:${isbn}`];
+  if (!libroCrudo) return null;
 
-  return {
+  
+  const libro = {
     fuente: "Open Library",
-    titulo: [libro.title, libro.subtitle].filter(Boolean).join(": "),
-    autor: libro.authors?.map((a) => a.name).join(", ") ?? "",
-    editorial: libro.publishers?.map((p) => p.name).join(", ") ?? "",
-    anio: libro.publish_date?.match(/\d{4}/)
-      ? Number(libro.publish_date.match(/\d{4}/)[0])
+    titulo: [libroCrudo.title, libroCrudo.subtitle].filter(Boolean).join(": "),
+    autor: libroCrudo.authors?.map((a) => a.name).join(", ") ?? "",
+    editorial: libroCrudo.publishers?.map((p) => p.name).join(", ") ?? "",
+    anio: libroCrudo.publish_date?.match(/\d{4}/)
+      ? Number(libroCrudo.publish_date.match(/\d{4}/)[0])
       : null,
-    paginas: libro.number_of_pages ?? null,
-    descripcion: libro.excerpts?.[0]?.text ?? "",
-    categorias: libro.subjects?.slice(0, 5).map((s) => s.name) ?? [],
+    paginas: libroCrudo.number_of_pages ?? null,
+    descripcion: libroCrudo.excerpts?.[0]?.text ?? "",
+    categorias: libroCrudo.subjects?.slice(0, 5).map((s) => s.name) ?? [],
     idioma: "",
-    portada: libro.cover?.medium ?? libro.cover?.large ?? "",
+    portada: libroCrudo.cover?.medium ?? libroCrudo.cover?.large ?? "",
   };
+
+  return libro;
 }
 
 /* ------------------------------------------------------------------ */
