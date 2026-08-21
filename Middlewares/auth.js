@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
 /**
  * Verifica que venga un token válido en el header:
@@ -52,4 +52,4 @@ function verificarSuperAdmin(req, res, next) {
   next();
 }
 
-module.exports = { verificarToken, verificarAdmin, verificarSuperAdmin };
+export { verificarToken, verificarAdmin, verificarSuperAdmin };

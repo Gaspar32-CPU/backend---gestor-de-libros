@@ -1,13 +1,16 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const jwt = require('jsonwebtoken');
-const {
+import dotenv from 'dotenv';
+import express from 'express';
+import cors from 'cors';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import {
   verificarToken,
   verificarAdmin,
   verificarSuperAdmin,
-} = require('./middlewares/auth');
-const isbnRoutes = require('./routes/isbn.routes');
+} from './Middlewares/auth.js';
+import isbnRoutes from './routes/isbn.routes.js';
+
+dotenv.config();
 
 const app = express();
 const PUERTO = process.env.PORT || 3001;
@@ -284,11 +287,11 @@ app.post('/api/auth/login', async (req, res) => {
     organizacionId: 1,
   };
 
-  if (!usuario) {
+  if (!usuarioMock) {
     return res.status(401).json({ error: 'Credenciales incorrectas' });
   }
 
-  const passwordCorrecta = await bcrypt.compare(contrasena, usuario.contrasena);
+  const passwordCorrecta = await bcrypt.compare(password, usuarioMock.password);
 
   if (!passwordCorrecta) {
     return res.status(401).json({ error: 'Credenciales incorrectas' });

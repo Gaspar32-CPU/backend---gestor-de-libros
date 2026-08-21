@@ -1,9 +1,9 @@
-const { Router } = require("express");
-const {
+import { Router } from "express";
+import {
   buscarLibroPorIsbn,
   limpiarIsbn,
   isbnEsValido,
-} = require("../services/isbn.service");
+} from "../services/isbn/index.js";
 
 const router = Router();
 
@@ -49,4 +49,4 @@ router.get("/isbn/:isbn", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
