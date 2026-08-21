@@ -7,7 +7,7 @@ import {
   verificarToken,
   verificarAdmin,
   verificarSuperAdmin,
-} from './Middlewares/auth.js';
+} from './middlewares/auth.js';
 import isbnRoutes from './routes/isbn.routes.js';
 
 dotenv.config();
