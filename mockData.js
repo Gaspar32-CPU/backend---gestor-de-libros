@@ -14,9 +14,9 @@ export const organizaciones = [
 ];
 
 export const usuarios = [
-    { id: 1, CI: 12345678, nombre: "superadmin", correo: "superadmin@anima.edu.uy", contrasenia: "password", fecharegistro: "09/01/2009" ,rol: "admin_plataforma"},
+    { id: 1, CI: 12345678, nombre: "superadmin", correo: "superadmin@anima.edu.uy", contrasenia: "$2a$12$...", fecharegistro: "09/01/2009" ,rol: "admin_plataforma"},
     { id: 2, CI: 87654321, nombre: "mauro", correo: "mauro@anima.edu.uy", contrasenia: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026" ,rol: "lector"},
-    { id: 3, CI: 11111111, nombre: "admin", correo: "superadmin", contrasenia: "password", fecharegistro: "21/08/2026" ,rol: "admin"},
+    { id: 3, CI: 11111111, nombre: "admin", correo: "superadmin", contrasenia: "$2a$12$...", fecharegistro: "21/08/2026" ,rol: "admin"},
 ];
 
 export const usuarios_configuracion = [
