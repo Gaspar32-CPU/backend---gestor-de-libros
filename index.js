@@ -9,6 +9,7 @@ import {
   verificarSuperAdmin,
 } from './middlewares/auth.js';
 import isbnRoutes from './routes/isbn.routes.js';
+import { usuarios } from './mockData.js';
 
 dotenv.config();
 
@@ -228,13 +229,44 @@ app.delete('/api/organizaciones/:id/configuracion', verificarToken, verificarAdm
    ============================================================ */
 
 // POST /api/usuarios - Crear un nuevo usuario (público, con mail de dominio asociado)
-app.post('/api/usuarios', sinImplementar);
+app.post('/api/auth/register', async (req, res) => {
+  const { nombre, apellido, cedula, correo, telefono, contrasena, confirmarContrasena } = req.body ?? {};
 
-// GET /api/usuarios - Listar usuarios de mi organización (admin)
-app.get('/api/usuarios', verificarToken, verificarAdmin, (req, res) => {
-  const usuariosDeMiOrg = usuariosDB.filter(
-    (u) => u.organizacionId === req.usuario.organizacionId
-  );
+  const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
+
+  if (!nombre || !apellido || !cedula || !correo || !telefono || !contrasena || !confirmarContrasena) {
+    return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  }
+
+  if (usuarios.find((u) => u.correo === correo)) {
+    return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });  
+  }
+
+  if (contrasena !== confirmarContrasena) {
+    return res.status(400).json({ error: 'Las contraseñas no coinciden' });
+  }
+  // Usuario de prueba, hasta que conectemos la base de datos real.
+  const usuarioNuevo = {
+    id: 10,
+    nombre: nombre,
+    cedula: cedula,
+    correo: correo,
+    telefono: telefono,
+    contrasena: contrasenaHasheada,
+    rol: 'lector',
+    organizacionId: 1,
+  };
+
+  usuarios.push(usuarioNuevo);
+
+  res.status(200).json({ message: 'Usuario creado' });;
+});
+
+// GET /usuarios - Listar usuarios de mi organización (admin)
+app.get('/usuarios', verificarToken, verificarAdmin, (req, res) => {
+  // Antes buscaba en "planes" por error (copy-paste de otro endpoint).
+  // Esto debería filtrar usuariosDB por la organización del admin logueado:
+  const usuariosDeMiOrg = usuariosDB.filter(u => u.organizacionId === req.usuario.organizacionId);
   res.json(usuariosDeMiOrg);
 });
 
@@ -278,31 +310,23 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'Faltan email o contraseña' });
   }
 
-  // Usuario de prueba, hasta que conectemos la base de datos real.
-  const usuarioMock = {
-    id: 1,
-    email: 'admin@anima.edu.uy',
-    password: '12345678',
-    rol: 'admin',
-    organizacionId: 1,
-  };
+  const usuarioElegido = usuarios.find((u) => u.correo === email);
 
-  if (!usuarioMock) {
-    return res.status(401).json({ error: 'Credenciales incorrectas' });
-  }
+  if (!usuarioElegido) {
+  return res.status(401).json({ code: 'CREDENCIALES_INVALIDAS', message: 'Credenciales incorrectas' });  }
 
-  const passwordCorrecta = await bcrypt.compare(password, usuarioMock.password);
+  const passwordCorrecta = await bcrypt.compare(password, usuarioElegido.contrasenia);
 
   if (!passwordCorrecta) {
-    return res.status(401).json({ error: 'Credenciales incorrectas' });
+    return res.status(401).json({ code: 'CREDENCIALES_INVALIDAS', message: 'Credenciales incorrectas' });
   }
 
   const token = jwt.sign(
     {
-      id: usuarioMock.id,
-      email: usuarioMock.correo,
-      rol: usuarioMock.rol,
-      organizacionId: usuarioMock.organizacionId,
+      id: usuarioElegido.id,
+      email: usuarioElegido.correo,
+      rol: usuarioElegido.rol,
+      organizacionId: usuarioElegido.organizacionId,
     },
     process.env.JWT_SECRET,
     { expiresIn: '2h' }
