@@ -5,18 +5,17 @@ export const planes = [
 ];
 
 export const organizaciones = [
-    { id: 1, nombre: "", idPlan: 1, dominio: "", activo: true, expiracion:""},
-    { id: 2, nombre: "", idPlan: 2, dominio: "", activo: true, expiracion:""},
-    { id: 3, nombre: "", idPlan: 3, dominio: "", activo: true, expiracion:""},
+    { id: 1, nombre: "Anima BT", idPlan: 1, dominio: "", activo: true, expiracion:"", logoUrl: "https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png"},
+    { id: 2, nombre: "Providencia", idPlan: 2, dominio: "", activo: true, expiracion:"", logoUrl: "https://www.providencia.org.uy/wp-content/uploads/2016/08/logoNegro.png"},
+    { id: 3, nombre: "Universidad de la Republica", idPlan: 3, dominio: "", activo: true, expiracion:"", logoUrl: "https://i0.wp.com/parlamentodata.com/wp-content/uploads/2020/05/logo-udelar.png?ssl=1"},
     { id: 4, nombre: "", idPlan: 1, dominio: "", activo: true, expiracion:""},
     { id: 5, nombre: "", idPlan: 2, dominio: "", activo: true, expiracion:""},
-
 ];
 
 export const usuarios = [
-    { id: 1, CI: 12345678, nombre: "superadmin", correo: "superadmin@anima.edu.uy", contrasenia: "password", fecharegistro: "09/01/2009" ,rol: "admin_plataforma"},
-    { id: 2, CI: 87654321, nombre: "mauro", correo: "mauro@anima.edu.uy", contrasenia: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026" ,rol: "lector"},
-    { id: 3, CI: 11111111, nombre: "admin", correo: "superadmin", contrasenia: "password", fecharegistro: "21/08/2026" ,rol: "admin"},
+    { id: 1, CI: 12345678, nombre: "superadmin", correo: "superadmin@anima.edu.uy", contrasenia: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "09/01/2009" ,rol: "super-admin", organizacionNombre: "Anima BT", organizacionId: 1},
+    { id: 2, CI: 87654321, nombre: "mauro aires", correo: "mauro@anima.edu.uy", contrasenia: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 2},
+    { id: 3, CI: 57642736, nombre: "admin", correo: "admin@anima.edu.uy", contrasenia: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026" ,rol: "admin", organizacionNombre: "Anima BT", organizacionId: 3},
 ];
 
 export const usuarios_configuracion = [

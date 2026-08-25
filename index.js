@@ -9,7 +9,7 @@ import {
   verificarSuperAdmin,
 } from './middlewares/auth.js';
 import isbnRoutes from './routes/isbn.routes.js';
-import { usuarios } from './mockData.js';
+import { organizaciones, usuarios } from './mockData.js';
 
 dotenv.config();
 
@@ -147,12 +147,12 @@ app.post('/api/organizaciones', verificarToken, verificarSuperAdmin, sinImplemen
 app.get('/api/organizaciones', verificarToken, verificarSuperAdmin, sinImplementar);
 
 // GET /api/organizaciones/:id - Obtener datos de la organización (admin de esa organización)
-app.get('/api/organizaciones/:id', verificarToken, verificarAdmin, (req, res) => {
+app.get('/api/organizaciones/:id', verificarToken, (req, res) => {
   if (!esDeMiOrganizacion(req, req.params.id)) {
     return res.status(403).json({ error: 'No autorizado' });
   }
 
-  const organizacion = buscarPorId(organizacionesDB, req.params.id);
+  const organizacion = buscarPorId(organizaciones, req.params.id)
 
   if (!organizacion) {
     return res.status(404).json({ error: 'Organizacion no encontrada' });
@@ -325,6 +325,7 @@ app.post('/api/auth/login', async (req, res) => {
     {
       id: usuarioElegido.id,
       email: usuarioElegido.correo,
+      nombre: usuarioElegido.nombre,
       rol: usuarioElegido.rol,
       organizacionId: usuarioElegido.organizacionId,
     },
