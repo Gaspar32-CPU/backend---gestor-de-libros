@@ -23,7 +23,7 @@ CREATE TABLE usuarios (
     ci 	INT NOT NULL,
     nombre 	VARCHAR(150) NOT NULL,
     email 	VARCHAR(150) NOT NULL UNIQUE,
-    contrasenia 	VARCHAR(255) NOT NULL,
+    contrasena 	VARCHAR(255) NOT NULL,
     fecha_registro 	DATETIME NOT NULL,
     rol ENUM('lector', 'admin_organizacion', 'admin_plataforma') NOT NULL
 );
