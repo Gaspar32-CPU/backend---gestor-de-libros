@@ -1,17 +1,15 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { pool } from './db.js';
 import {
   verificarToken,
   verificarAdmin,
   verificarSuperAdmin,
 } from './middlewares/auth.js';
 import isbnRoutes from './routes/isbn.routes.js';
-import { organizaciones, usuarios } from './mockData.js';
-
-dotenv.config();
 
 const app = express();
 const PUERTO = process.env.PORT || 3001;
@@ -78,13 +76,50 @@ const sinImplementar = (req, res) =>
    ISBN — autocompletado de libros
    ============================================================ */
 
-app.use('/api/libros', isbnRoutes);
+app.get('/api/libros', verificarToken, async (req, res, next) => {
+  try {
+    const { busqueda, genero } = req.query;
+    let sql = `
+      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.portada, l.stock,
+             l.stock - COALESCE(p.activos, 0) AS disponibles,
+             ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
+      FROM libros l
+      LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
+                 WHERE estado IN ('pendiente_retiro','activo','atrasado')
+                 GROUP BY id_libro) p ON p.id_libro = l.id
+      LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
+                 GROUP BY id_libro) r ON r.id_libro = l.id
+      WHERE l.id_organizacion = ?`;
+    const params = [req.usuario.organizacionId];
 
+    if (busqueda) {
+      sql += ' AND (l.titulo LIKE ? OR l.autor LIKE ?)';
+      params.push(`%${busqueda}%`, `%${busqueda}%`);
+    }
+    if (genero) {
+      sql += ' AND l.genero = ?';
+      params.push(genero);
+    }
+
+    const [libros] = await pool.query(sql, params);
+    res.json(libros);
+  } catch (err) {
+    next(err);
+  }
+});
 /* ============================================================
    SALUD
    ============================================================ */
 
-app.get('/api/salud', (req, res) => res.json({ ok: true }));
+app.get('/api/salud', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT COUNT(*) AS libros FROM libros');
+    res.json({ ok: true, db: 'conectada', libros: rows[0].libros });
+  } catch (err) {
+    console.error('[salud]', err.message);
+    res.status(503).json({ ok: false, db: 'sin conexión' });
+  }
+});
 
 /* ============================================================
    PAGOS
@@ -315,7 +350,7 @@ app.post('/api/auth/login', async (req, res) => {
   if (!usuarioElegido) {
   return res.status(401).json({ code: 'CREDENCIALES_INVALIDAS', message: 'Credenciales incorrectas' });  }
 
-  const passwordCorrecta = await bcrypt.compare(password, usuarioElegido.contrasenia);
+  const passwordCorrecta = await bcrypt.compare(password, usuarioElegido.contrasena);
 
   if (!passwordCorrecta) {
     return res.status(401).json({ code: 'CREDENCIALES_INVALIDAS', message: 'Credenciales incorrectas' });

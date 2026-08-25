@@ -13,9 +13,9 @@ export const organizaciones = [
 ];
 
 export const usuarios = [
-    { id: 1, CI: 12345678, nombre: "superadmin", correo: "superadmin@anima.edu.uy", contrasenia: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "09/01/2009" ,rol: "super-admin", organizacionNombre: "Anima BT", organizacionId: 1},
-    { id: 2, CI: 87654321, nombre: "mauro aires", correo: "mauro@anima.edu.uy", contrasenia: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 2},
-    { id: 3, CI: 57642736, nombre: "admin", correo: "admin@anima.edu.uy", contrasenia: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026" ,rol: "admin", organizacionNombre: "Anima BT", organizacionId: 3},
+    { id: 1, CI: 12345678, nombre: "superadmin", correo: "superadmin@anima.edu.uy", contrasena: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "09/01/2009" ,rol: "super-admin", organizacionNombre: "Anima BT", organizacionId: 1},
+    { id: 2, CI: 87654321, nombre: "mauro aires", correo: "mauro@anima.edu.uy", contrasena: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 2},
+    { id: 3, CI: 57642736, nombre: "admin", correo: "admin@anima.edu.uy", contrasena: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026" ,rol: "admin", organizacionNombre: "Anima BT", organizacionId: 3},
 ];
 
 export const usuarios_configuracion = [
