@@ -9,6 +9,8 @@ import {
   verificarAdmin,
   verificarSuperAdmin,
 } from './middlewares/auth.js';
+import { organizaciones, usuarios } from './mockData.js';
+
 import isbnRoutes from './routes/isbn.routes.js';
 
 const app = express();
