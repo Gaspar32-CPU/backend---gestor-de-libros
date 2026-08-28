@@ -26,12 +26,22 @@ INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, 
   (2,    '33333333', 'Admin Dos',     'admin@liceodemo2.edu.uy', '099333333',
    '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin_organizacion');
 
-INSERT INTO libros (id_organizacion, titulo, autor, genero, editorial, isbn, fecha_pub, stock) VALUES
-  (1, 'Cien años de soledad',      'Gabriel García Márquez', 'Novela',          'Sudamericana', '9780307474728', '1967-05-30', 3),
-  (1, 'Fahrenheit 451',            'Ray Bradbury',           'Ciencia ficción', 'Ballantine',   '9781451673319', '1953-10-19', 2),
-  (1, 'Rayuela',                   'Julio Cortázar',         'Novela',          'Sudamericana', '9788437604572', '1963-06-28', 2),
-  (1, 'Breve historia del tiempo', 'Stephen Hawking',        'Ciencia',         'Bantam',       '9780553380163', '1988-04-01', 1),
-  (2, 'El nombre de la rosa',      'Umberto Eco',            'Novela',          'Lumen',        '9788497592802', '1980-01-01', 2);
+INSERT INTO libros (id_organizacion, titulo, autor, genero, editorial, isbn, fecha_pub, stock, portada) VALUES
+  (1, 'Cien años de soledad',      'Gabriel García Márquez', 'Novela',          'Sudamericana', '9780307474728', '1967-05-30', 3, 'https://covers.openlibrary.org/b/isbn/9780307474728-L.jpg'),
+  (1, 'Fahrenheit 451',            'Ray Bradbury',           'Ciencia ficción', 'Ballantine',   '9781451673319', '1953-10-19', 2, 'https://covers.openlibrary.org/b/isbn/9781451673319-L.jpg'),
+  (1, 'Rayuela',                   'Julio Cortázar',         'Novela',          'Sudamericana', '9788437604572', '1963-06-28', 2, 'https://covers.openlibrary.org/b/isbn/9788437604572-L.jpg'),
+  (1, 'Breve historia del tiempo', 'Stephen Hawking',        'Ciencia',         'Bantam',       '9780553380163', '1988-04-01', 1, 'https://covers.openlibrary.org/b/isbn/9780553380163-L.jpg'),
+  (2, 'El nombre de la rosa',      'Umberto Eco',            'Novela',          'Lumen',        '9788497592802', '1980-01-01', 2, 'https://covers.openlibrary.org/b/isbn/9788497592802-L.jpg'),
+  (1, '1984',                                  'George Orwell',              'Distopía',           'Debolsillo',    '9780451524935', '1949-06-08', 4, 'https://covers.openlibrary.org/b/isbn/9780451524935-L.jpg'),
+  (1, 'Don Quijote de la Mancha',               'Miguel de Cervantes',        'Clásico',            'Cátedra',       '9788420412146', '1605-01-01', 4, 'https://covers.openlibrary.org/b/isbn/9788420412146-L.jpg'),
+  (1, 'Harry Potter y la piedra filosofal',     'J. K. Rowling',              'Fantasía',           'Salamandra',    '9788478884452', '1997-06-26', 6, 'https://covers.openlibrary.org/b/isbn/9788478884452-L.jpg'),
+  (1, 'Sapiens: De animales a dioses',          'Yuval Noah Harari',          'Ensayo / Historia',  'Debate',        '9780062316097', '2011-01-01', 3, 'https://covers.openlibrary.org/b/isbn/9780062316097-L.jpg'),
+  (1, 'El amor en los tiempos del cólera',      'Gabriel García Márquez',     'Romance',            'Oveja Negra',   '9780307389732', '1985-01-01', 2, 'https://covers.openlibrary.org/b/isbn/9780307389732-L.jpg'),
+  (1, 'Crónica de una muerte anunciada',        'Gabriel García Márquez',     'Novela corta',       'Plaza & Janés', '9788497592077', '1981-01-01', 3, 'https://covers.openlibrary.org/b/isbn/9788497592077-L.jpg'),
+  (2, 'El principito',                          'Antoine de Saint-Exupéry',   'Infantil',           'Salamandra',    '9788478887198', '1943-04-06', 5, 'https://covers.openlibrary.org/b/isbn/9788478887198-L.jpg'),
+  (1, 'Ficciones',                              'Jorge Luis Borges',          'Cuento',             'Debolsillo',    '9788499089183', '1944-01-01', 2, 'https://covers.openlibrary.org/b/isbn/9788499089183-L.jpg'),
+  (2, 'El túnel',                               'Ernesto Sabato',             'Novela',             'Seix Barral',   '9788432217600', '1948-01-01', 1, 'https://covers.openlibrary.org/b/isbn/9788432217600-L.jpg'),
+  (1, 'Los detectives salvajes',                'Roberto Bolaño',             'Novela',             'Anagrama',      '9788433968365', '1998-01-01', 2, 'https://covers.openlibrary.org/b/isbn/9788433968365-L.jpg');
 
 INSERT INTO prestamos (id_usuario, id_libro, id_organizacion, fecha_devolucion_esperada, lugar_retiro, estado) VALUES
   (3, 1, 1, DATE_ADD(NOW(), INTERVAL 30 DAY), 'Mostrador principal', 'activo'),
