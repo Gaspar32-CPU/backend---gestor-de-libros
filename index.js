@@ -530,10 +530,77 @@ app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
 });
 
 // PUT /api/libros/:id - Editar valores de un libro (admin)
-app.put('/api/libros/:id', verificarToken, verificarAdmin, sinImplementar);
+app.put('/api/libros/:id', verificarToken, verificarAdmin, async (req, res, next) => {
+  const { titulo, autor, genero, editorial, isbn, fecha_pub, resumen, portada, stock } =
+    req.body ?? {};
+
+  if (!titulo || !autor || !genero) {
+    return res.status(400).json({
+      error: 'faltan_campos',
+      mensaje: 'Faltan campos obligatorios: titulo, autor, genero',
+    });
+  }
+
+  try {
+    const [resultado] = await pool.query(
+      `UPDATE libros
+       SET titulo = ?, autor = ?, genero = ?, editorial = ?, isbn = ?, fecha_pub = ?,
+           resumen = ?, portada = ?, stock = ?
+       WHERE id = ? AND id_organizacion = ?`,
+      [
+        titulo,
+        autor,
+        genero,
+        editorial ?? null,
+        isbn ?? null,
+        fecha_pub ?? null,
+        resumen ?? null,
+        portada ?? null,
+        stock ?? 1,
+        req.params.id,
+        req.usuario.organizacionId,
+      ]
+    );
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
+    }
+
+    const [[libroActualizado]] = await pool.query('SELECT * FROM libros WHERE id = ?', [
+      req.params.id,
+    ]);
+
+    res.json(libroActualizado);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // DELETE /api/libros/:id - Eliminar un libro específico (admin)
-app.delete('/api/libros/:id', verificarToken, verificarAdmin, sinImplementar);
+app.delete('/api/libros/:id', verificarToken, verificarAdmin, async (req, res, next) => {
+  try {
+    const [resultado] = await pool.query(
+      'DELETE FROM libros WHERE id = ? AND id_organizacion = ?',
+      [req.params.id, req.usuario.organizacionId]
+    );
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
+    }
+
+    res.status(200).json({ mensaje: 'Libro eliminado' });
+  } catch (err) {
+    // El libro tiene préstamos asociados (ON DELETE RESTRICT): no se puede
+    // borrar sin perder el historial, hay que avisarle al admin por qué.
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
+      return res.status(409).json({
+        error: 'libro_con_prestamos',
+        mensaje: 'No se puede eliminar: el libro tiene préstamos asociados.',
+      });
+    }
+    next(err);
+  }
+});
 
 /* ============================================================
    PRÉSTAMOS
