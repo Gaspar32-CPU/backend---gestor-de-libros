@@ -77,37 +77,11 @@ const sinImplementar = (req, res) =>
    ISBN — autocompletado de libros
    ============================================================ */
 
-app.get('/api/libros', verificarToken, async (req, res, next) => {
-  try {
-    const { busqueda, genero } = req.query;
-    let sql = `
-      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.portada, l.stock,
-             l.stock - COALESCE(p.activos, 0) AS disponibles,
-             ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
-      FROM libros l
-      LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
-                 WHERE estado IN ('pendiente_retiro','activo','atrasado')
-                 GROUP BY id_libro) p ON p.id_libro = l.id
-      LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
-                 GROUP BY id_libro) r ON r.id_libro = l.id
-      WHERE l.id_organizacion = ?`;
-    const params = [req.usuario.organizacionId];
+// Monta GET /api/libros/isbn/:isbn (ver routes/isbn.routes.js). Antes se
+// importaba pero nunca se montaba, así que la búsqueda por ISBN caía
+// siempre en el 404 genérico del final del archivo.
+app.use('/api/libros', isbnRoutes);
 
-    if (busqueda) {
-      sql += ' AND (l.titulo LIKE ? OR l.autor LIKE ?)';
-      params.push(`%${busqueda}%`, `%${busqueda}%`);
-    }
-    if (genero) {
-      sql += ' AND l.genero = ?';
-      params.push(genero);
-    }
-
-    const [libros] = await pool.query(sql, params);
-    res.json(libros);
-  } catch (err) {
-    next(err);
-  }
-});
 /* ============================================================
    SALUD
    ============================================================ */
@@ -448,10 +422,83 @@ app.post('/api/auth/recuperar', sinImplementar);
    ============================================================ */
 
 // POST /api/libros - Crear un nuevo libro (admin)
-app.post('/api/libros', verificarToken, verificarAdmin, sinImplementar);
+app.post('/api/libros', verificarToken, verificarAdmin, async (req, res, next) => {
+  const { titulo, autor, genero, editorial, isbn, fecha_pub, resumen, portada, stock } =
+    req.body ?? {};
+
+  if (!titulo || !autor || !genero) {
+    return res.status(400).json({
+      error: 'faltan_campos',
+      mensaje: 'Faltan campos obligatorios: titulo, autor, genero',
+    });
+  }
+
+  try {
+    const [resultado] = await pool.query(
+      `INSERT INTO libros
+         (id_organizacion, titulo, autor, genero, editorial, isbn, fecha_pub, resumen, portada, stock)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.usuario.organizacionId,
+        titulo,
+        autor,
+        genero,
+        editorial ?? null,
+        isbn ?? null,
+        fecha_pub ?? null,
+        resumen ?? null,
+        portada ?? null,
+        stock ?? 1,
+      ]
+    );
+
+    const [rows] = await pool.query('SELECT * FROM libros WHERE id = ?', [
+      resultado.insertId,
+    ]);
+    const libroCreado = rows[0];
+
+    if (!libroCreado) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
+    }
+
+    res.status(201).json(libroCreado);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/libros - Listar todos los libros (cualquier usuario autenticado)
-app.get('/api/libros', verificarToken, sinImplementar);
+app.get('/api/libros', verificarToken, async (req, res, next) => {
+  try {
+    const { busqueda, genero } = req.query;
+    let sql = `
+      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.portada, l.stock,
+             l.stock - COALESCE(p.activos, 0) AS disponibles,
+             ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
+      FROM libros l
+      LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
+                 WHERE estado IN ('pendiente_retiro','activo','atrasado')
+                 GROUP BY id_libro) p ON p.id_libro = l.id
+      LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
+                 GROUP BY id_libro) r ON r.id_libro = l.id
+      WHERE l.id_organizacion = ?`;
+    const params = [req.usuario.organizacionId];
+
+    if (busqueda) {
+      sql += ' AND (l.titulo LIKE ? OR l.autor LIKE ?)';
+      params.push(`%${busqueda}%`, `%${busqueda}%`);
+    }
+    if (genero) {
+      sql += ' AND l.genero = ?';
+      params.push(genero);
+    }
+
+    const [libros] = await pool.query(sql, params);
+    res.json(libros);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/libros/:id - Ver un libro específico (cualquier usuario autenticado)
 app.get('/api/libros/:id', verificarToken, sinImplementar);
