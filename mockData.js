@@ -1,8 +1,108 @@
 export const planes = [
-    { id: 1, nombre: "Plan Básico", precio: 10000, funcionalidades: "", limiteUsuarios: 200},
-    { id: 2, nombre: "Plan Premium", precio: 25000, funcionalidades: "", limiteUsuarios: 500},
-    { id: 3, nombre: "Plan Empresarial", precio: 50000, funcionalidades: "", limiteUsuarios: 1000,}
+    {
+        id: 1,
+        codigo: "esencial",
+        nombre: "Esencial",
+        tagline: "inicial",
+        descripcion: "Para una biblioteca escolar que arranca su digitalización.",
+        icono: "📗",
+        destacado: false,
+        precioMensual: 39,
+        precioAnual: 390,
+        limites: { usuarios: 150, admins: 2, titulos: 500 },
+        caracteristicas: [
+            "Catálogo con búsqueda y filtros",
+            "Préstamos automáticos y devoluciones",
+            "Notificaciones por correo",
+            "Reportes básicos de circulación",
+        ],
+    },
+    {
+        id: 2,
+        codigo: "colegio",
+        nombre: "Colegio",
+        tagline: "recomendado",
+        descripcion: "Para bachilleratos y colegios con la marca y los reportes que necesitan.",
+        icono: "📘",
+        destacado: true,
+        etiquetaDestacado: "MÁS ELEGIDO",
+        precioMensual: 89,
+        precioAnual: 890,
+        limites: { usuarios: 600, admins: 6, titulos: 3000 },
+        caracteristicas: [
+            "Todo lo del plan Esencial",
+            "Personalización de marca completa",
+            "Hasta 3.000 títulos en catálogo",
+            "Reportes avanzados con exportación",
+        ],
+    },
+    {
+        id: 3,
+        codigo: "campus",
+        nombre: "Campus",
+        tagline: "avanzado",
+        descripcion: "Para redes de colegios y bibliotecas grandes.",
+        icono: "📚",
+        destacado: false,
+        precioMensual: 179,
+        precioAnual: 1790,
+        limites: { usuarios: 2500, admins: 25, titulos: 10000 },
+        caracteristicas: [
+            "Todo lo del plan Colegio",
+            "2.500 usuarios y 10.000 títulos",
+            "Soporte prioritario con SLA",
+            "Gestor de cuenta dedicado",
+        ],
+    },
 ];
+
+export const planesComparativa = {
+    categorias: [
+        {
+            nombre: "Catálogo",
+            filas: [
+                { funcionalidad: "Catálogo con búsqueda y filtros", valores: [true, true, true] },
+                { funcionalidad: "Fichas de libro con reseñas", valores: [true, true, true] },
+                { funcionalidad: "Vista de invitado (solo lectura)", valores: [true, true, true] },
+                { funcionalidad: "Recomendados y novedades destacadas", valores: [true, true, true] },
+            ],
+        },
+        {
+            nombre: "Préstamos",
+            filas: [
+                { funcionalidad: "Préstamos automáticos por stock", valores: [true, true, true] },
+                { funcionalidad: "Gestión de devoluciones", valores: [true, true, true] },
+                { funcionalidad: "Reglas de préstamo configurables", valores: [false, true, true] },
+                { funcionalidad: "Congelamiento por atraso reiterado", valores: [false, true, true] },
+            ],
+        },
+        {
+            nombre: "Límites",
+            filas: [
+                { funcionalidad: "Usuarios incluidos", valores: [150, 600, 2500] },
+                { funcionalidad: "Administradores", valores: [2, 6, 25] },
+                { funcionalidad: "Títulos en catálogo", valores: [500, 3000, 10000] },
+            ],
+        },
+        {
+            nombre: "Marca y reportes",
+            filas: [
+                { funcionalidad: "Personalización de marca", valores: [false, true, true] },
+                { funcionalidad: "Plantillas de notificación editables", valores: [false, true, true] },
+                { funcionalidad: "Reportes de circulación", valores: ["Básicos", "Avanzados", "Avanzados"] },
+                { funcionalidad: "Exportación de reportes", valores: [false, true, true] },
+            ],
+        },
+        {
+            nombre: "Soporte",
+            filas: [
+                { funcionalidad: "Migración de tu Excel", valores: [true, true, true] },
+                { funcionalidad: "Canal de soporte", valores: ["Correo", "Correo y teléfono", "Prioritario 4 h"] },
+                { funcionalidad: "Gestor de cuenta dedicado", valores: [false, false, true] },
+            ],
+        },
+    ],
+};
 
 export const organizaciones = [
     { id: 1, nombre: "Anima BT", idPlan: 1, dominio: "", activo: true, expiracion:"", logoUrl: "https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png"},
