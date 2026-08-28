@@ -9,7 +9,7 @@ import {
   verificarAdmin,
   verificarSuperAdmin,
 } from './middlewares/auth.js';
-import { organizaciones, usuarios } from './mockData.js';
+import { organizaciones, usuarios, planes as planesMock, planesComparativa } from './mockData.js';
 
 import isbnRoutes from './routes/isbn.routes.js';
 
@@ -39,7 +39,6 @@ app.use(
    DATOS EN MEMORIA (temporal, hasta conectar MySQL)
    ============================================================ */
 
-const planes = [];
 const usuariosDB = [];
 const organizacionesDB = [];
 const configuracionesDB = [];
@@ -141,12 +140,19 @@ app.post('/api/pagos/webhook', sinImplementar);
 
 // GET /api/planes - Listar todos los planes (público)
 app.get('/api/planes', (req, res) => {
-  res.json(planes);
+  res.json(planesMock);
+});
+
+// GET /api/planes/comparativa - Tabla comparativa de funcionalidades (público)
+// Nota de orden: va ANTES de /api/planes/:id para que Express no interprete
+// "comparativa" como un valor de :id (mismo patrón que /prestamos/mis-prestamos).
+app.get('/api/planes/comparativa', (req, res) => {
+  res.json(planesComparativa);
 });
 
 // GET /api/planes/:id - Ver un plan específico (público)
 app.get('/api/planes/:id', (req, res) => {
-  const plan = buscarPorId(planes, req.params.id);
+  const plan = buscarPorId(planesMock, req.params.id);
 
   if (!plan) {
     return res.status(404).json({ error: 'Plan no encontrado' });
@@ -156,13 +162,67 @@ app.get('/api/planes/:id', (req, res) => {
 });
 
 // POST /api/planes - Crear un nuevo plan (solo super-admin)
-app.post('/api/planes', verificarToken, verificarSuperAdmin, sinImplementar);
+app.post('/api/planes', verificarToken, verificarSuperAdmin, (req, res) => {
+  const { codigo, nombre, precioMensual, precioAnual } = req.body ?? {};
+
+  if (!codigo || !nombre || !precioMensual || !precioAnual) {
+    return res.status(400).json({
+      error: 'Faltan campos obligatorios: codigo, nombre, precioMensual, precioAnual',
+    });
+  }
+
+  if (planesMock.some((p) => p.codigo === codigo)) {
+    return res.status(409).json({ error: 'Ya existe un plan con ese código' });
+  }
+
+  const idNuevo = planesMock.reduce((max, p) => Math.max(max, p.id), 0) + 1;
+
+  const planNuevo = {
+    id: idNuevo,
+    codigo,
+    nombre,
+    tagline: req.body.tagline ?? '',
+    descripcion: req.body.descripcion ?? '',
+    icono: req.body.icono ?? '',
+    destacado: req.body.destacado ?? false,
+    ...(req.body.etiquetaDestacado && { etiquetaDestacado: req.body.etiquetaDestacado }),
+    precioMensual,
+    precioAnual,
+    limites: req.body.limites ?? {},
+    caracteristicas: req.body.caracteristicas ?? [],
+  };
+
+  planesMock.push(planNuevo);
+
+  res.status(201).json(planNuevo);
+});
 
 // PUT /api/planes/:id - Editar valores de un plan (solo super-admin)
-app.put('/api/planes/:id', verificarToken, verificarSuperAdmin, sinImplementar);
+app.put('/api/planes/:id', verificarToken, verificarSuperAdmin, (req, res) => {
+  const plan = buscarPorId(planesMock, req.params.id);
+
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan no encontrado' });
+  }
+
+  const { id, ...camposEditables } = req.body ?? {};
+  Object.assign(plan, camposEditables);
+
+  res.json(plan);
+});
 
 // DELETE /api/planes/:id - Eliminar un plan específico (solo super-admin)
-app.delete('/api/planes/:id', verificarToken, verificarSuperAdmin, sinImplementar);
+app.delete('/api/planes/:id', verificarToken, verificarSuperAdmin, (req, res) => {
+  const indice = planesMock.findIndex((p) => p.id === parseInt(req.params.id, 10));
+
+  if (indice === -1) {
+    return res.status(404).json({ error: 'Plan no encontrado' });
+  }
+
+  planesMock.splice(indice, 1);
+
+  res.status(200).json({ mensaje: 'Plan eliminado' });
+});
 
 /* ============================================================
    ADMINISTRADORES DE PLATAFORMA
