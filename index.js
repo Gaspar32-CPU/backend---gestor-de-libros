@@ -213,7 +213,7 @@ app.put('/api/planes/:id', verificarToken, verificarSuperAdmin, (req, res) => {
 
 // DELETE /api/planes/:id - Eliminar un plan específico (solo super-admin)
 app.delete('/api/planes/:id', verificarToken, verificarSuperAdmin, (req, res) => {
-  const indice = planesMock.findIndex((p) => p.id === parseInt(req.params.id));
+  const indice = planesMock.findIndex((p) => p.id === parseInt(req.params.id, 10));
 
   if (indice === -1) {
     return res.status(404).json({ error: 'Plan no encontrado' });
