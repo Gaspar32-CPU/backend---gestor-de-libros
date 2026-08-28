@@ -452,9 +452,14 @@ app.post('/api/libros', verificarToken, verificarAdmin, async (req, res, next) =
       ]
     );
 
-    const [[libroCreado]] = await pool.query('SELECT * FROM libros WHERE id = ?', [
+    const [rows] = await pool.query('SELECT * FROM libros WHERE id = ?', [
       resultado.insertId,
     ]);
+    const libroCreado = rows[0];
+
+    if (!libroCreado) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
+    }
 
     res.status(201).json(libroCreado);
   } catch (err) {
