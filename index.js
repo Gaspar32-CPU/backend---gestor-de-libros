@@ -472,7 +472,8 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
   try {
     const { busqueda, genero } = req.query;
     let sql = `
-      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.portada, l.stock,
+      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.isbn, l.fecha_pub,
+             l.resumen, l.portada, l.stock,
              l.stock - COALESCE(p.activos, 0) AS disponibles,
              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
       FROM libros l
@@ -501,7 +502,32 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
 });
 
 // GET /api/libros/:id - Ver un libro específico (cualquier usuario autenticado)
-app.get('/api/libros/:id', verificarToken, sinImplementar);
+app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
+  try {
+    const [[libro]] = await pool.query(
+      `SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.isbn, l.fecha_pub,
+              l.resumen, l.portada, l.stock,
+              l.stock - COALESCE(p.activos, 0) AS disponibles,
+              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
+       FROM libros l
+       LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
+                  WHERE estado IN ('pendiente_retiro','activo','atrasado')
+                  GROUP BY id_libro) p ON p.id_libro = l.id
+       LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
+                  GROUP BY id_libro) r ON r.id_libro = l.id
+       WHERE l.id = ? AND l.id_organizacion = ?`,
+      [req.params.id, req.usuario.organizacionId]
+    );
+
+    if (!libro) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
+    }
+
+    res.json(libro);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // PUT /api/libros/:id - Editar valores de un libro (admin)
 app.put('/api/libros/:id', verificarToken, verificarAdmin, sinImplementar);
