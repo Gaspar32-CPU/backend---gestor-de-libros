@@ -620,7 +620,32 @@ app.get('/api/prestamos/mis-prestamos/:id', verificarToken, sinImplementar);
 app.patch('/api/prestamos/mis-prestamos/:id/extender', verificarToken, sinImplementar);
 
 // POST /api/prestamos - Crear un nuevo préstamo (cualquier usuario autenticado)
-app.post('/api/prestamos', verificarToken, sinImplementar);
+app.post('/api/prestamos', verificarToken, async (req, res, next) => {
+  try {
+    const { libroId, usuarioId } = req.body;
+
+    // El plazo y el lugar de retiro son configurables por organización
+    // (tabla configuraciones), por eso no se reciben del cliente: se buscan acá.
+    const [[configuracion]] = await pool.query(
+      'SELECT dias_prestamo, lugar_retiro FROM configuraciones WHERE id_organizacion = ?',
+      [req.usuario.organizacionId]
+    );
+    const diasPrestamo = configuracion?.dias_prestamo ?? 30;
+    const lugarRetiro = configuracion?.lugar_retiro ?? null;
+    const fechaDevolucionEsperada = new Date(Date.now() + diasPrestamo * 24 * 60 * 60 * 1000);
+
+    // Todo préstamo nuevo arranca pendiente de retiro; el estado lo controla
+    // el sistema a partir de acá (retiro, devolución, atraso), no el cliente.
+    const [resultado] = await pool.query(
+      'INSERT INTO prestamos (id_libro, id_usuario, id_organizacion, fecha_devolucion_esperada, lugar_retiro, estado) VALUES (?, ?, ?, ?, ?, ?)',
+      [libroId, usuarioId, req.usuario.organizacionId, fechaDevolucionEsperada, lugarRetiro, 'pendiente_retiro']
+    );
+
+    res.status(201).json({ id: resultado.insertId });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/prestamos - Listar todos los préstamos (admin), admite ?estado=vencido
 app.get('/api/prestamos', verificarToken, verificarAdmin, sinImplementar);
