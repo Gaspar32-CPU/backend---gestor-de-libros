@@ -11,9 +11,9 @@ INSERT INTO organizaciones (nombre, id_plan, dominio, expiracion_suscripcion) VA
   ('Liceo Demo Dos', 1, 'liceodemo2.edu.uy', NULL);
 
 INSERT INTO configuraciones (id_organizacion, nombre_app, color_primario, color_secundario,
-                             max_libros_por_usuario, dias_prestamo, max_extensiones) VALUES
-  (1, 'Biblioteca Liceo Uno', '#1D4ED8', '#93C5FD', 3, 30, 2),
-  (2, 'Biblioteca Liceo Dos', '#047857', '#6EE7B7', 2, 15, 1);
+                             max_libros_por_usuario, lugar_retiro, dias_prestamo, max_extensiones) VALUES
+  (1, 'Biblioteca Liceo Uno', '#1D4ED8', '#93C5FD', 3, 'Sala de tutores', 30, 2),
+  (2, 'Biblioteca Liceo Dos', '#1a1c20', '#bccee2', 3, 'Sala de dicaprio', 20, 1);
 
 -- Contraseña de todos: "password123"
 INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, rol) VALUES
@@ -23,7 +23,7 @@ INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, 
    '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin_organizacion'),
   (1,    '22222222', 'Lectora Uno',   'lectora@liceodemo1.edu.uy', '099222222',
    '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'lector'),
-  (2,    '33333333', 'Admin Dos',     'admin@liceodemo2.edu.uy', '099333333',
+  (1,    '33333333', 'Admin Dos',     'admin@liceodemo2.edu.uy', '099333333',
    '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin_organizacion');
 
 INSERT INTO libros (id_organizacion, titulo, autor, genero, editorial, isbn, fecha_pub, stock, portada) VALUES
