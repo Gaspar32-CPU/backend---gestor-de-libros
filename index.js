@@ -333,8 +333,8 @@ app.post('/api/auth/register', async (req, res) => {
   res.status(200).json({ message: 'Usuario creado' });;
 });
 
-// GET /usuarios - Listar usuarios de mi organización (admin)
-app.get('/usuarios', verificarToken, verificarAdmin, (req, res) => {
+// GET /api/usuarios - Listar usuarios de mi organización (admin)
+app.get('/api/usuarios', verificarToken, verificarAdmin, (req, res) => {
   // Antes buscaba en "planes" por error (copy-paste de otro endpoint).
   // Esto debería filtrar usuariosDB por la organización del admin logueado:
   const usuariosDeMiOrg = usuariosDB.filter(u => u.organizacionId === req.usuario.organizacionId);
@@ -610,11 +610,33 @@ app.delete('/api/libros/:id', verificarToken, verificarAdmin, async (req, res, n
    ============================================================ */
 
 // GET /api/prestamos/mis-prestamos - Préstamos del usuario autenticado
-//     admite ?estado=vencido para filtrar
-app.get('/api/prestamos/mis-prestamos', verificarToken, sinImplementar);
+//     admite ?estado=atrasado (u otro valor del ENUM) para filtrar
+app.get('/api/prestamos/mis-prestamos', verificarToken, async (req, res, next) => {
+  try {
+    const { estado } = req.query;
 
-// GET /api/prestamos/mis-prestamos/:id - Ver un préstamo propio
-app.get('/api/prestamos/mis-prestamos/:id', verificarToken, sinImplementar);
+    let sql = `
+      SELECT p.id, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+             p.extensiones_realizadas, p.lugar_retiro, p.estado,
+             l.titulo, l.autor, l.portada
+      FROM prestamos p
+      JOIN libros l ON l.id = p.id_libro
+      WHERE p.id_usuario = ? AND p.id_organizacion = ?`;
+    const params = [req.usuario.id, req.usuario.organizacionId];
+
+    if (estado) {
+      sql += ' AND p.estado = ?';
+      params.push(estado);
+    }
+
+    sql += ' ORDER BY p.fecha_prestamo DESC';
+
+    const [prestamos] = await pool.query(sql, params);
+    res.json(prestamos);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // PATCH /api/prestamos/mis-prestamos/:id/extender - Extender plazo del préstamo
 app.patch('/api/prestamos/mis-prestamos/:id/extender', verificarToken, sinImplementar);
