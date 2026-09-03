@@ -333,8 +333,8 @@ app.post('/api/auth/register', async (req, res) => {
   res.status(200).json({ message: 'Usuario creado' });;
 });
 
-// GET /usuarios - Listar usuarios de mi organización (admin)
-app.get('/usuarios', verificarToken, verificarAdmin, (req, res) => {
+// GET /api/usuarios - Listar usuarios de mi organización (admin)
+app.get('/api/usuarios', verificarToken, verificarAdmin, (req, res) => {
   // Antes buscaba en "planes" por error (copy-paste de otro endpoint).
   // Esto debería filtrar usuariosDB por la organización del admin logueado:
   const usuariosDeMiOrg = usuariosDB.filter(u => u.organizacionId === req.usuario.organizacionId);
@@ -472,7 +472,8 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
   try {
     const { busqueda, genero } = req.query;
     let sql = `
-      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.portada, l.stock,
+      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.isbn, l.fecha_pub,
+             l.resumen, l.portada, l.stock,
              l.stock - COALESCE(p.activos, 0) AS disponibles,
              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
       FROM libros l
@@ -501,13 +502,105 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
 });
 
 // GET /api/libros/:id - Ver un libro específico (cualquier usuario autenticado)
-app.get('/api/libros/:id', verificarToken, sinImplementar);
+app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
+  try {
+    const [[libro]] = await pool.query(
+      `SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.isbn, l.fecha_pub,
+              l.resumen, l.portada, l.stock,
+              l.stock - COALESCE(p.activos, 0) AS disponibles,
+              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
+       FROM libros l
+       LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
+                  WHERE estado IN ('pendiente_retiro','activo','atrasado')
+                  GROUP BY id_libro) p ON p.id_libro = l.id
+       LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
+                  GROUP BY id_libro) r ON r.id_libro = l.id
+       WHERE l.id = ? AND l.id_organizacion = ?`,
+      [req.params.id, req.usuario.organizacionId]
+    );
+
+    if (!libro) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
+    }
+
+    res.json(libro);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // PUT /api/libros/:id - Editar valores de un libro (admin)
-app.put('/api/libros/:id', verificarToken, verificarAdmin, sinImplementar);
+app.put('/api/libros/:id', verificarToken, verificarAdmin, async (req, res, next) => {
+  const { titulo, autor, genero, editorial, isbn, fecha_pub, resumen, portada, stock } =
+    req.body ?? {};
+
+  if (!titulo || !autor || !genero) {
+    return res.status(400).json({
+      error: 'faltan_campos',
+      mensaje: 'Faltan campos obligatorios: titulo, autor, genero',
+    });
+  }
+
+  try {
+    const [resultado] = await pool.query(
+      `UPDATE libros
+       SET titulo = ?, autor = ?, genero = ?, editorial = ?, isbn = ?, fecha_pub = ?,
+           resumen = ?, portada = ?, stock = ?
+       WHERE id = ? AND id_organizacion = ?`,
+      [
+        titulo,
+        autor,
+        genero,
+        editorial ?? null,
+        isbn ?? null,
+        fecha_pub ?? null,
+        resumen ?? null,
+        portada ?? null,
+        stock ?? 1,
+        req.params.id,
+        req.usuario.organizacionId,
+      ]
+    );
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
+    }
+
+    const [[libroActualizado]] = await pool.query('SELECT * FROM libros WHERE id = ?', [
+      req.params.id,
+    ]);
+
+    res.json(libroActualizado);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // DELETE /api/libros/:id - Eliminar un libro específico (admin)
-app.delete('/api/libros/:id', verificarToken, verificarAdmin, sinImplementar);
+app.delete('/api/libros/:id', verificarToken, verificarAdmin, async (req, res, next) => {
+  try {
+    const [resultado] = await pool.query(
+      'DELETE FROM libros WHERE id = ? AND id_organizacion = ?',
+      [req.params.id, req.usuario.organizacionId]
+    );
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
+    }
+
+    res.status(200).json({ mensaje: 'Libro eliminado' });
+  } catch (err) {
+    // El libro tiene préstamos asociados (ON DELETE RESTRICT): no se puede
+    // borrar sin perder el historial, hay que avisarle al admin por qué.
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
+      return res.status(409).json({
+        error: 'libro_con_prestamos',
+        mensaje: 'No se puede eliminar: el libro tiene préstamos asociados.',
+      });
+    }
+    next(err);
+  }
+});
 
 /* ============================================================
    PRÉSTAMOS
@@ -517,17 +610,64 @@ app.delete('/api/libros/:id', verificarToken, verificarAdmin, sinImplementar);
    ============================================================ */
 
 // GET /api/prestamos/mis-prestamos - Préstamos del usuario autenticado
-//     admite ?estado=vencido para filtrar
-app.get('/api/prestamos/mis-prestamos', verificarToken, sinImplementar);
+//     admite ?estado=atrasado (u otro valor del ENUM) para filtrar
+app.get('/api/prestamos/mis-prestamos', verificarToken, async (req, res, next) => {
+  try {
+    const { estado } = req.query;
 
-// GET /api/prestamos/mis-prestamos/:id - Ver un préstamo propio
-app.get('/api/prestamos/mis-prestamos/:id', verificarToken, sinImplementar);
+    let sql = `
+      SELECT p.id, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+             p.extensiones_realizadas, p.lugar_retiro, p.estado,
+             l.titulo, l.autor, l.portada
+      FROM prestamos p
+      JOIN libros l ON l.id = p.id_libro
+      WHERE p.id_usuario = ? AND p.id_organizacion = ?`;
+    const params = [req.usuario.id, req.usuario.organizacionId];
+
+    if (estado) {
+      sql += ' AND p.estado = ?';
+      params.push(estado);
+    }
+
+    sql += ' ORDER BY p.fecha_prestamo DESC';
+
+    const [prestamos] = await pool.query(sql, params);
+    res.json(prestamos);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // PATCH /api/prestamos/mis-prestamos/:id/extender - Extender plazo del préstamo
 app.patch('/api/prestamos/mis-prestamos/:id/extender', verificarToken, sinImplementar);
 
 // POST /api/prestamos - Crear un nuevo préstamo (cualquier usuario autenticado)
-app.post('/api/prestamos', verificarToken, sinImplementar);
+app.post('/api/prestamos', verificarToken, async (req, res, next) => {
+  try {
+    const { libroId, usuarioId } = req.body;
+
+    // El plazo y el lugar de retiro son configurables por organización
+    // (tabla configuraciones), por eso no se reciben del cliente: se buscan acá.
+    const [[configuracion]] = await pool.query(
+      'SELECT dias_prestamo, lugar_retiro FROM configuraciones WHERE id_organizacion = ?',
+      [req.usuario.organizacionId]
+    );
+    const diasPrestamo = configuracion?.dias_prestamo ?? 30;
+    const lugarRetiro = configuracion?.lugar_retiro ?? null;
+    const fechaDevolucionEsperada = new Date(Date.now() + diasPrestamo * 24 * 60 * 60 * 1000);
+
+    // Todo préstamo nuevo arranca pendiente de retiro; el estado lo controla
+    // el sistema a partir de acá (retiro, devolución, atraso), no el cliente.
+    const [resultado] = await pool.query(
+      'INSERT INTO prestamos (id_libro, id_usuario, id_organizacion, fecha_devolucion_esperada, lugar_retiro, estado) VALUES (?, ?, ?, ?, ?, ?)',
+      [libroId, usuarioId, req.usuario.organizacionId, fechaDevolucionEsperada, lugarRetiro, 'pendiente_retiro']
+    );
+
+    res.status(201).json({ id: resultado.insertId });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/prestamos - Listar todos los préstamos (admin), admite ?estado=vencido
 app.get('/api/prestamos', verificarToken, verificarAdmin, sinImplementar);

@@ -66,6 +66,28 @@ Si modificás el esquema, hay que hacer `docker compose down -v` para que se
 vuelvan a aplicar. Editá siempre el `.sql`, nunca la base a mano desde Adminer:
 así todo el equipo trabaja con el mismo esquema.
 
+### Alternativa: MySQL local (sin Docker)
+
+Si Docker Desktop no arranca (falla frecuente en Windows) o preferís no usarlo, podés
+apuntar el proyecto a un MySQL instalado en la máquina en vez del contenedor. Cambiá
+el `.env` para que apunte a esa instancia (usuario, contraseña y `DB_NAME` propios,
+no tienen que coincidir con los del `docker-compose.yml`).
+
+Como en este caso los scripts de `db/init/` no se auto-ejecutan (eso solo lo hace
+Docker en un volumen vacío), hay que correrlos a mano con el cliente `mysql`. Esto
+aplica tanto para el primer arranque como para cualquier cambio posterior en
+`01_schema.sql` o `02_seed.sql` — no hace falta distinguir los casos, recrear todo
+siempre funciona porque el schema son puros `CREATE TABLE` sobre una base vacía:
+
+```bash
+# Ajustá MYSQL, host, usuario, contraseña y DB_NAME a los de tu .env
+MYSQL="/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe"   # en Linux/Mac: solo "mysql"
+
+"$MYSQL" -h 127.0.0.1 -P 3306 -u root -proot -e "DROP DATABASE IF EXISTS gestion_libros; CREATE DATABASE gestion_libros CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+"$MYSQL" -h 127.0.0.1 -P 3306 -u root -proot gestion_libros < "db/init/01_schema.sql"
+"$MYSQL" -h 127.0.0.1 -P 3306 -u root -proot gestion_libros < "db/init/02_seed.sql"
+```
+
 ### Usuarios de prueba
 
 Contraseña de todos: `password123`
