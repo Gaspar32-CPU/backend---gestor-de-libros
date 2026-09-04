@@ -105,25 +105,44 @@ export const planesComparativa = {
 };
 
 export const organizaciones = [
-    { id: 1, nombre: "Anima BT", idPlan: 1, dominio: "", activo: true, expiracion:"", logoUrl: "https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png"},
-    { id: 2, nombre: "Providencia", idPlan: 2, dominio: "", activo: true, expiracion:"", logoUrl: "https://www.providencia.org.uy/wp-content/uploads/2016/08/logoNegro.png"},
-    { id: 3, nombre: "Universidad de la Republica", idPlan: 3, dominio: "", activo: true, expiracion:"", logoUrl: "https://i0.wp.com/parlamentodata.com/wp-content/uploads/2020/05/logo-udelar.png?ssl=1"},
-    { id: 4, nombre: "", idPlan: 1, dominio: "", activo: true, expiracion:""},
-    { id: 5, nombre: "", idPlan: 2, dominio: "", activo: true, expiracion:""},
+    { id: 1, nombre: "Anima BT", idPlan: 2, dominio: "anima.edu.uy", activo: true, expiracion:"", logoUrl: "https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png"},
+    { id: 2, nombre: "Providencia", idPlan: 1, dominio: "providencia.edu.uy", activo: true, expiracion:"", logoUrl: "https://www.providencia.org.uy/wp-content/uploads/2016/08/logoNegro.png"},
 ];
 
+// Contraseña de todos: "password123"
+const CONTRASENA_DE_PRUEBA = "$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde";
+
 export const usuarios = [
-    { id: 1, CI: 12345678, nombre: "superadmin", correo: "superadmin@anima.edu.uy", contrasena: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "09/01/2009" ,rol: "super-admin", organizacionNombre: "Anima BT", organizacionId: 1},
-    { id: 2, CI: 87654321, nombre: "mauro aires", correo: "mauro@anima.edu.uy", contrasena: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1},
-    { id: 3, CI: 57642736, nombre: "admin", correo: "admin@anima.edu.uy", contrasena: "$2a$12$nKf.hj2obZ/rSh1vciHZNuO8a1FJJtJnjfh85PAmAOIB3PoSGfVX6", fecharegistro: "21/08/2026" ,rol: "admin", organizacionNombre: "Anima BT", organizacionId: 1},
+    { id: 1, CI: null, nombre: "Super Admin", correo: "super@plataforma.com", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "super-admin", organizacionNombre: null, organizacionId: null },
+
+    // Anima BT (id 1): 1 admin + 8 lectores de prueba
+    { id: 2, CI: 10000001, nombre: "Admin Uno", correo: "admin@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "admin", organizacionNombre: "Anima BT", organizacionId: 1 },
+    { id: 3, CI: 10000002, nombre: "Mauro Aires", correo: "mauro.aires@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1 },
+    { id: 4, CI: 10000003, nombre: "Angelina López", correo: "angelina.lopez@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1 },
+    { id: 5, CI: 10000004, nombre: "Alex Vasconcelo", correo: "alex.vasconcelo@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1 },
+    { id: 6, CI: 10000005, nombre: "Valentina Barrios", correo: "valentina.barrios@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1 },
+    { id: 7, CI: 10000006, nombre: "Luciano Vargas", correo: "luciano.vargas@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1 },
+    { id: 8, CI: 10000007, nombre: "Ariana Rodríguez", correo: "ariana.rodriguez@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1 },
+    { id: 9, CI: 10000008, nombre: "Gianna Vasconcelo", correo: "gianna.vasconcelo@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1 },
+    { id: 10, CI: 10000009, nombre: "Leandro Benítez", correo: "leandro.benitez@anima.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Anima BT", organizacionId: 1 },
+
+    // Providencia (id 2): 1 admin + 8 lectores de prueba
+    { id: 11, CI: 20000001, nombre: "Admin Dos", correo: "admin@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "admin", organizacionNombre: "Providencia", organizacionId: 2 },
+    { id: 12, CI: 20000002, nombre: "Sofía Méndez", correo: "sofia.mendez@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
+    { id: 13, CI: 20000003, nombre: "Tomás Ferreira", correo: "tomas.ferreira@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
+    { id: 14, CI: 20000004, nombre: "Camila Suárez", correo: "camila.suarez@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
+    { id: 15, CI: 20000005, nombre: "Bruno Acosta", correo: "bruno.acosta@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
+    { id: 16, CI: 20000006, nombre: "Martina Silva", correo: "martina.silva@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
+    { id: 17, CI: 20000007, nombre: "Nicolás Pereyra", correo: "nicolas.pereyra@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
+    { id: 18, CI: 20000008, nombre: "Julieta Rivas", correo: "julieta.rivas@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
+    { id: 19, CI: 20000009, nombre: "Federico Castro", correo: "federico.castro@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
 ];
 
 export const usuarios_configuracion = [
-    { id: 1, idUsuario: 1, idOrganizacion: 1,},
-    { id: 2, idUsuario: 2, idOrganizacion: 1,},
-    { id: 3, idUsuario: 3, idOrganizacion: 1,},
-    { id: 4, idUsuario: 1, idOrganizacion: 2,},
-    { id: 5, idUsuario: 2, idOrganizacion: 2,},
+    { id: 1, idUsuario: 2, idOrganizacion: 1,},
+    { id: 2, idUsuario: 3, idOrganizacion: 1,},
+    { id: 3, idUsuario: 11, idOrganizacion: 2,},
+    { id: 4, idUsuario: 12, idOrganizacion: 2,},
 ];
 
 export const libros = [
@@ -143,11 +162,4 @@ export const prestamos = [
 export const configuraciones = [
     { id: 1, idOrganizacion: 1, nombre: "configuracion1", nombreApp: "", logo: "", color_primario: "rojo", color_secundario: "azul", mensajes_personalizados: "",},
     { id: 2, idOrganizacion: 2, nombre: "configuracion2", nombreApp: "", logo: "", color_primario: "verde", color_secundario: "amarillo", mensajes_personalizados: "",},
-    { id: 3, idOrganizacion: 3, nombre: "configuracion3", nombreApp: "", logo: "", color_primario: "naranja", color_secundario: "morado", mensajes_personalizados: "",},
-    {id: 4, idOrganizacion: 4, nombre: "configuracion4", nombreApp: "", logo: "", color_primario: "rosa", color_secundario: "gris", mensajes_personalizados: "",},
-    { id: 5, idOrganizacion: 5, nombre: "configuracion5", nombreApp: "", logo: "", color_primario: "negro", color_secundario: "blanco", mensajes_personalizados: "",},
-
-    
-    
-
-];    
+];
