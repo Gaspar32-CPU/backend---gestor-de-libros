@@ -17,6 +17,8 @@ import {
   listarUsuariosPorOrganizacion,
   crearUsuario,
   buscarOrganizacionPorId,
+  buscarOrganizacionPorDominio,
+  crearOrganizacion,
   listarPlanes,
   buscarPlanPorId,
 } from './repos.js';
@@ -311,22 +313,66 @@ app.delete('/api/organizaciones/:id/configuracion', verificarToken, verificarAdm
    ============================================================ */
 
 // POST /api/usuarios - Crear un nuevo usuario (público, con mail de dominio asociado)
+// Si vienen "organizacion" y "dominio", este registro no es un lector
+// sumándose a una organización existente: es el alta de una organización
+// nueva, y quien se registra queda como su admin_organizacion.
 app.post('/api/auth/register', async (req, res) => {
-  const { nombre, apellido, cedula, correo, telefono, contrasena, confirmarContrasena } = req.body ?? {};
-
-  const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
+  const {
+    nombre,
+    apellido,
+    cedula,
+    correo,
+    telefono,
+    contrasena,
+    confirmarContrasena,
+    organizacion,
+    dominio,
+    planId,
+    ciclo,
+  } = req.body ?? {};
 
   if (!nombre || !apellido || !cedula || !correo || !telefono || !contrasena || !confirmarContrasena) {
     return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  }
+
+  if (contrasena !== confirmarContrasena) {
+    return res.status(400).json({ error: 'Las contraseñas no coinciden' });
   }
 
   if (await buscarUsuarioPorCorreo(correo)) {
     return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
   }
 
-  if (contrasena !== confirmarContrasena) {
-    return res.status(400).json({ error: 'Las contraseñas no coinciden' });
+  const creaOrganizacionNueva = Boolean(organizacion && dominio);
+
+  let organizacionId = 1; // TODO: para un lector que se suma a una org existente, esto debería resolverse por el dominio del correo, no quedar fijo en la 1.
+  let rol = 'lector';
+
+  if (creaOrganizacionNueva) {
+    if (!planId) {
+      return res.status(400).json({ error: 'Falta el plan seleccionado' });
+    }
+
+    if (await buscarOrganizacionPorDominio(dominio)) {
+      return res.status(409).json({ code: 'DOMINIO_YA_REGISTRADO', message: 'Ya existe una organización con ese dominio' });
+    }
+
+    const mesesSuscripcion = ciclo === 'anual' ? 12 : 1;
+    const expiracion = new Date();
+    expiracion.setMonth(expiracion.getMonth() + mesesSuscripcion);
+
+    const organizacionNueva = await crearOrganizacion({
+      nombre: organizacion,
+      idPlan: planId,
+      dominio,
+      expiracion,
+    });
+
+    organizacionId = organizacionNueva.id;
+    rol = 'admin_organizacion';
   }
+
+  const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
 
   await crearUsuario({
     nombre,
@@ -334,7 +380,8 @@ app.post('/api/auth/register', async (req, res) => {
     correo,
     telefono,
     contrasena: contrasenaHasheada,
-    organizacionId: 1,
+    organizacionId,
+    rol,
   });
 
   res.status(200).json({ message: 'Usuario creado' });
