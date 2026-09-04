@@ -7,24 +7,59 @@ INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios, limite
   ('Premium',  'Sin límites prácticos',    99.00, 5000, 50000,'{"reservas": true,  "reportes": true}');
 
 INSERT INTO organizaciones (nombre, id_plan, dominio, expiracion_suscripcion) VALUES
-  ('Liceo Demo Uno', 2, 'liceodemo1.edu.uy', DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
-  ('Liceo Demo Dos', 1, 'liceodemo2.edu.uy', NULL);
+  ('Anima BT',    2, 'anima.edu.uy',       DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+  ('Providencia', 1, 'providencia.edu.uy', NULL);
 
 INSERT INTO configuraciones (id_organizacion, nombre_app, color_primario, color_secundario,
                              max_libros_por_usuario, lugar_retiro, dias_prestamo, max_extensiones) VALUES
-  (1, 'Biblioteca Liceo Uno', '#1D4ED8', '#93C5FD', 3, 'Sala de tutores', 30, 2),
-  (2, 'Biblioteca Liceo Dos', '#1a1c20', '#bccee2', 3, 'Sala de dicaprio', 20, 1);
+  (1, 'Biblioteca Anima BT',    '#1D4ED8', '#93C5FD', 3, 'Sala de tutores',  30, 2),
+  (2, 'Biblioteca Providencia', '#1a1c20', '#bccee2', 3, 'Sala de dicaprio', 20, 1);
 
+-- Mismos usuarios que en mockData.js (mismo orden => mismos id autoincrementales).
 -- Contraseña de todos: "password123"
 INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, rol) VALUES
-  (NULL, NULL,       'Super Admin',   'super@plataforma.com', '099000000',
-   '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin_plataforma'),
-  (1,    '11111111', 'Admin Uno',     'admin@liceodemo1.edu.uy', '099111111',
-   '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin_organizacion'),
-  (1,    '22222222', 'Lectora Uno',   'lectora@liceodemo1.edu.uy', '099222222',
-   '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'lector'),
-  (1,    '33333333', 'Admin Dos',     'admin@liceodemo2.edu.uy', '099333333',
-   '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin_organizacion');
+  (NULL, NULL,        'Super Admin',       'super@plataforma.com',            '099000000',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'admin_plataforma'),
+
+  -- Anima BT (id_organizacion = 1): 1 admin + 8 lectores de prueba
+  (1, '10000001', 'Admin Uno',          'admin@anima.edu.uy',              '099100001',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'admin_organizacion'),
+  (1, '10000002', 'Mauro Aires',        'mauro.aires@anima.edu.uy',        '099100002',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (1, '10000003', 'Angelina López',     'angelina.lopez@anima.edu.uy',     '099100003',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (1, '10000004', 'Alex Vasconcelo',    'alex.vasconcelo@anima.edu.uy',    '099100004',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (1, '10000005', 'Valentina Barrios',  'valentina.barrios@anima.edu.uy',  '099100005',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (1, '10000006', 'Luciano Vargas',     'luciano.vargas@anima.edu.uy',     '099100006',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (1, '10000007', 'Ariana Rodríguez',   'ariana.rodriguez@anima.edu.uy',   '099100007',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (1, '10000008', 'Gianna Vasconcelo',  'gianna.vasconcelo@anima.edu.uy',  '099100008',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (1, '10000009', 'Leandro Benítez',    'leandro.benitez@anima.edu.uy',    '099100009',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+
+  -- Providencia (id_organizacion = 2): 1 admin + 8 lectores de prueba
+  (2, '20000001', 'Admin Dos',          'admin@providencia.edu.uy',        '099200001',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'admin_organizacion'),
+  (2, '20000002', 'Sofía Méndez',       'sofia.mendez@providencia.edu.uy', '099200002',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (2, '20000003', 'Tomás Ferreira',     'tomas.ferreira@providencia.edu.uy', '099200003',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (2, '20000004', 'Camila Suárez',      'camila.suarez@providencia.edu.uy', '099200004',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (2, '20000005', 'Bruno Acosta',       'bruno.acosta@providencia.edu.uy', '099200005',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (2, '20000006', 'Martina Silva',      'martina.silva@providencia.edu.uy', '099200006',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (2, '20000007', 'Nicolás Pereyra',    'nicolas.pereyra@providencia.edu.uy', '099200007',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (2, '20000008', 'Julieta Rivas',      'julieta.rivas@providencia.edu.uy', '099200008',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+  (2, '20000009', 'Federico Castro',    'federico.castro@providencia.edu.uy', '099200009',
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector');
 
 INSERT INTO libros (id_organizacion, titulo, autor, genero, editorial, isbn, fecha_pub, stock, portada) VALUES
   (1, 'Cien años de soledad',      'Gabriel García Márquez', 'Novela',          'Sudamericana', '9780307474728', '1967-05-30', 3, 'https://covers.openlibrary.org/b/isbn/9780307474728-L.jpg'),

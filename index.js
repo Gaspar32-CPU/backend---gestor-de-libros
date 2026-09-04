@@ -9,7 +9,17 @@ import {
   verificarAdmin,
   verificarSuperAdmin,
 } from './middlewares/auth.js';
-import { organizaciones, usuarios, planes as planesMock, planesComparativa } from './mockData.js';
+import { planes as planesMock, planesComparativa } from './mockData.js';
+import {
+  buscarUsuarioPorCorreo,
+  buscarUsuarioPorId,
+  listarUsuarios,
+  listarUsuariosPorOrganizacion,
+  crearUsuario,
+  buscarOrganizacionPorId,
+  listarPlanes,
+  buscarPlanPorId,
+} from './repos.js';
 
 import isbnRoutes from './routes/isbn.routes.js';
 
@@ -39,7 +49,6 @@ app.use(
    DATOS EN MEMORIA (temporal, hasta conectar MySQL)
    ============================================================ */
 
-const usuariosDB = [];
 const organizacionesDB = [];
 const configuracionesDB = [];
 
@@ -113,20 +122,22 @@ app.post('/api/pagos/webhook', sinImplementar);
    ============================================================ */
 
 // GET /api/planes - Listar todos los planes (público)
-app.get('/api/planes', (req, res) => {
-  res.json(planesMock);
+app.get('/api/planes', async (req, res) => {
+  res.json(await listarPlanes());
 });
 
 // GET /api/planes/comparativa - Tabla comparativa de funcionalidades (público)
 // Nota de orden: va ANTES de /api/planes/:id para que Express no interprete
 // "comparativa" como un valor de :id (mismo patrón que /prestamos/mis-prestamos).
+// La comparativa es contenido de marketing fijo: no tiene tabla propia en la
+// DB, así que se sirve directo del mock.
 app.get('/api/planes/comparativa', (req, res) => {
   res.json(planesComparativa);
 });
 
 // GET /api/planes/:id - Ver un plan específico (público)
-app.get('/api/planes/:id', (req, res) => {
-  const plan = buscarPorId(planesMock, req.params.id);
+app.get('/api/planes/:id', async (req, res) => {
+  const plan = await buscarPlanPorId(req.params.id);
 
   if (!plan) {
     return res.status(404).json({ error: 'Plan no encontrado' });
@@ -203,8 +214,8 @@ app.delete('/api/planes/:id', verificarToken, verificarSuperAdmin, (req, res) =>
    ============================================================ */
 
 // GET /api/admin/usuarios - Listar usuarios de todas las organizaciones (super-admin)
-app.get('/api/admin/usuarios', verificarToken, verificarSuperAdmin, (req, res) => {
-  res.json(usuariosDB);
+app.get('/api/admin/usuarios', verificarToken, verificarSuperAdmin, async (req, res) => {
+  res.json(await listarUsuarios());
 });
 
 /* ============================================================
@@ -218,12 +229,12 @@ app.post('/api/organizaciones', verificarToken, verificarSuperAdmin, sinImplemen
 app.get('/api/organizaciones', verificarToken, verificarSuperAdmin, sinImplementar);
 
 // GET /api/organizaciones/:id - Obtener datos de la organización (admin de esa organización)
-app.get('/api/organizaciones/:id', verificarToken, (req, res) => {
+app.get('/api/organizaciones/:id', verificarToken, async (req, res) => {
   if (!esDeMiOrganizacion(req, req.params.id)) {
     return res.status(403).json({ error: 'No autorizado' });
   }
 
-  const organizacion = buscarPorId(organizaciones, req.params.id)
+  const organizacion = await buscarOrganizacionPorId(req.params.id);
 
   if (!organizacion) {
     return res.status(404).json({ error: 'Organizacion no encontrada' });
@@ -309,41 +320,34 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ error: 'Todos los campos son obligatorios' });
   }
 
-  if (usuarios.find((u) => u.correo === correo)) {
-    return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });  
+  if (await buscarUsuarioPorCorreo(correo)) {
+    return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
   }
 
   if (contrasena !== confirmarContrasena) {
     return res.status(400).json({ error: 'Las contraseñas no coinciden' });
   }
-  // Usuario de prueba, hasta que conectemos la base de datos real.
-  const usuarioNuevo = {
-    id: 10,
-    nombre: nombre,
-    cedula: cedula,
-    correo: correo,
-    telefono: telefono,
+
+  await crearUsuario({
+    nombre,
+    ci: cedula,
+    correo,
+    telefono,
     contrasena: contrasenaHasheada,
-    rol: 'lector',
     organizacionId: 1,
-  };
+  });
 
-  usuarios.push(usuarioNuevo);
-
-  res.status(200).json({ message: 'Usuario creado' });;
+  res.status(200).json({ message: 'Usuario creado' });
 });
 
 // GET /api/usuarios - Listar usuarios de mi organización (admin)
-app.get('/api/usuarios', verificarToken, verificarAdmin, (req, res) => {
-  // Antes buscaba en "planes" por error (copy-paste de otro endpoint).
-  // Esto debería filtrar usuariosDB por la organización del admin logueado:
-  const usuariosDeMiOrg = usuariosDB.filter(u => u.organizacionId === req.usuario.organizacionId);
-  res.json(usuariosDeMiOrg);
+app.get('/api/usuarios', verificarToken, verificarAdmin, async (req, res) => {
+  res.json(await listarUsuariosPorOrganizacion(req.usuario.organizacionId));
 });
 
 // GET /api/usuarios/:id - Ver un usuario (el propio usuario, o admin de su organización)
-app.get('/api/usuarios/:id', verificarToken, (req, res) => {
-  const usuario = buscarPorId(usuariosDB, req.params.id);
+app.get('/api/usuarios/:id', verificarToken, async (req, res) => {
+  const usuario = await buscarUsuarioPorId(req.params.id);
 
   if (!usuario) {
     return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -359,8 +363,8 @@ app.get('/api/usuarios/:id', verificarToken, (req, res) => {
   }
 
   // Nunca devolver el hash de la contraseña, ni siquiera al propio usuario.
-  const { password, ...usuarioSinPassword } = usuario;
-  res.json(usuarioSinPassword);
+  const { contrasena, ...usuarioSinContrasena } = usuario;
+  res.json(usuarioSinContrasena);
 });
 
 // PUT /api/usuarios/:id - Editar un usuario (el propio usuario, o admin de su organización)
@@ -381,7 +385,7 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'Faltan email o contraseña' });
   }
 
-  const usuarioElegido = usuarios.find((u) => u.correo === email);
+  const usuarioElegido = await buscarUsuarioPorCorreo(email);
 
   if (!usuarioElegido) {
   return res.status(401).json({ code: 'CREDENCIALES_INVALIDAS', message: 'Credenciales incorrectas' });  }
