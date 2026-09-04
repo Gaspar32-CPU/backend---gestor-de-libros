@@ -117,12 +117,12 @@ export async function listarUsuarios() {
   return usuariosMock;
 }
 
-export async function crearUsuario({ nombre, ci, correo, telefono, contrasena, organizacionId }) {
+export async function crearUsuario({ nombre, ci, correo, telefono, contrasena, organizacionId, rol = 'lector' }) {
   try {
     const [resultado] = await pool.query(
       `INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, rol)
-       VALUES (?, ?, ?, ?, ?, ?, 'lector')`,
-      [organizacionId, ci, nombre, correo, telefono, contrasena]
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [organizacionId, ci, nombre, correo, telefono, contrasena, rol]
     );
 
     return usuarioDeDB({
@@ -133,7 +133,7 @@ export async function crearUsuario({ nombre, ci, correo, telefono, contrasena, o
       email: correo,
       telefono,
       contrasena,
-      rol: 'lector',
+      rol,
       fecha_registro: new Date(),
     });
   } catch (err) {
@@ -146,7 +146,7 @@ export async function crearUsuario({ nombre, ci, correo, telefono, contrasena, o
       correo,
       contrasena,
       fecharegistro: new Date().toLocaleDateString('es-UY'),
-      rol: 'lector',
+      rol: ROL_DB_A_MOCK[rol] ?? rol,
       organizacionId,
     };
     usuariosMock.push(usuarioNuevo);
@@ -169,6 +169,48 @@ export async function buscarOrganizacionPorId(id) {
     console.error('[repos] buscarOrganizacionPorId: falló la consulta a la DB, uso mock ->', err.message);
   }
   return organizacionesMock.find((o) => o.id === idNum);
+}
+
+export async function buscarOrganizacionPorDominio(dominio) {
+  try {
+    const [filas] = await pool.query('SELECT * FROM organizaciones WHERE dominio = ?', [dominio]);
+    if (filas[0]) return organizacionDeDB(filas[0]);
+  } catch (err) {
+    console.error('[repos] buscarOrganizacionPorDominio: falló la consulta a la DB, uso mock ->', err.message);
+  }
+  return organizacionesMock.find((o) => o.dominio === dominio);
+}
+
+export async function crearOrganizacion({ nombre, idPlan, dominio, expiracion }) {
+  try {
+    const [resultado] = await pool.query(
+      `INSERT INTO organizaciones (nombre, id_plan, dominio, activo, expiracion_suscripcion)
+       VALUES (?, ?, ?, 1, ?)`,
+      [nombre, idPlan, dominio, expiracion]
+    );
+
+    return organizacionDeDB({
+      id: resultado.insertId,
+      nombre,
+      id_plan: idPlan,
+      dominio,
+      activo: 1,
+      expiracion_suscripcion: expiracion,
+    });
+  } catch (err) {
+    console.error('[repos] crearOrganizacion: falló el insert en la DB, uso mock ->', err.message);
+
+    const organizacionNueva = {
+      id: organizacionesMock.reduce((max, o) => Math.max(max, o.id), 0) + 1,
+      nombre,
+      idPlan,
+      dominio,
+      activo: true,
+      expiracion,
+    };
+    organizacionesMock.push(organizacionNueva);
+    return organizacionNueva;
+  }
 }
 
 /* ============================================================
