@@ -75,7 +75,9 @@ CREATE TABLE usuarios (
     nombre           VARCHAR(150) NOT NULL,
     email            VARCHAR(150) NOT NULL,
     telefono         VARCHAR(30) NOT NULL,
-    contrasena       VARCHAR(255) NOT NULL,
+    -- NULL = usuario invitado por un admin que todavía no creó su contraseña
+    -- (ver POST /api/usuarios y POST /api/auth/crear-contrasena en index.js).
+    contrasena       VARCHAR(255) NULL,
     rol              ENUM('lector','admin_organizacion','admin_plataforma')
                      NOT NULL DEFAULT 'lector',
     activo           TINYINT(1) NOT NULL DEFAULT 1,
