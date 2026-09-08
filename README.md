@@ -52,6 +52,12 @@ http://localhost:8080
 
 > El servidor es `db`, no `localhost`: Adminer corre dentro de la red de Docker.
 
+**Acceder desde otra PC en la misma red:** conseguí la IP de la máquina que
+levanta Docker (`ipconfig getifaddr en0` en macOS) y entrá a
+`http://<esa-IP>:8080` desde el otro equipo. No expongas este puerto fuera de
+la red local: no tiene autenticación adicional más allá del usuario/contraseña
+de MySQL de arriba.
+
 ### Estructura
 
 ```
