@@ -8,12 +8,16 @@ INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios, limite
 
 INSERT INTO organizaciones (nombre, id_plan, dominio, expiracion_suscripcion) VALUES
   ('Anima BT',    2, 'anima.edu.uy',       DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
-  ('Providencia', 1, 'providencia.edu.uy', NULL);
+  ('Providencia', 1, 'providencia.edu.uy', NULL),
+  ('Anima btt',   2, 'test.com',           '2026-10-08');
 
-INSERT INTO configuraciones (id_organizacion, nombre_app, color_primario, color_secundario,
-                             max_libros_por_usuario, lugar_retiro, dias_prestamo, max_extensiones) VALUES
-  (1, 'Biblioteca Anima BT',    '#1D4ED8', '#93C5FD', 3, 'Sala de tutores',  30, 2),
-  (2, 'Biblioteca Providencia', '#1a1c20', '#bccee2', 3, 'Sala de dicaprio', 20, 1);
+INSERT INTO configuraciones (id_organizacion, nombre_app, logo, color_primario, color_secundario,
+                             max_libros_por_usuario, lugar_retiro, dias_prestamo,
+                             permite_extension, max_extensiones, dias_extension, congelar_usuarios) VALUES
+  (1, 'Biblioteca Anima BT',    NULL, '#1D4ED8', '#93C5FD', 3, 'Sala de tutores',  30, 1, 2, 30, 0),
+  (2, 'Biblioteca Providencia', NULL, '#1a1c20', '#bccee2', 3, 'Sala de dicaprio', 20, 1, 1, 30, 0),
+  (3, 'Biblioteca Anima BTT',   'https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png',
+      '#047857', '#6EE7B7', 2, 'Recepción sede Anima BTT', 15, 1, 1, 30, 0);
 
 -- Mismos usuarios que en mockData.js (mismo orden => mismos id autoincrementales).
 -- Contraseña de todos: "password123"
@@ -59,7 +63,13 @@ INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, 
   (2, '20000008', 'Julieta Rivas',      'julieta.rivas@providencia.edu.uy', '099200008',
    '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
   (2, '20000009', 'Federico Castro',    'federico.castro@providencia.edu.uy', '099200009',
-   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector');
+   '$2b$10$CsPYZnO.L4G/AiV/.iKh5.yvMlopWoT8cHAY/m4tuWLhVy0TUoYde', 'lector'),
+
+  -- Anima btt (id_organizacion = 3): 1 admin + 1 lector de prueba
+  (3, '57642736', 'ADMIN ANIMA BTT', 'admin@test.com',      '099999999',
+   '$2b$10$qNIGEVVgwzbDqGbMDFfi0eN8UBOPqXUf73vp0qR51iUY6h7dnuFdG', 'admin_organizacion'),
+  (3, '57922388', 'Mauro',           'mauro.aires@test.com', '099999999',
+   '$2b$10$dUJpjOTnjqB0WUH5kIDmpeWUuSxXnd1Wrf1kdekMyXnMAPLuYPS/K', 'lector');
 
 INSERT INTO libros (id_organizacion, titulo, autor, genero, editorial, isbn, fecha_pub, stock, portada) VALUES
   (1, 'Cien años de soledad',      'Gabriel García Márquez', 'Novela',          'Sudamericana', '9780307474728', '1967-05-30', 3, 'https://covers.openlibrary.org/b/isbn/9780307474728-L.jpg'),

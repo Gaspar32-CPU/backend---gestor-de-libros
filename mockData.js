@@ -107,6 +107,7 @@ export const planesComparativa = {
 export const organizaciones = [
     { id: 1, nombre: "Anima BT", idPlan: 2, dominio: "anima.edu.uy", activo: true, expiracion:"", logoUrl: "https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png"},
     { id: 2, nombre: "Providencia", idPlan: 1, dominio: "providencia.edu.uy", activo: true, expiracion:"", logoUrl: "https://www.providencia.org.uy/wp-content/uploads/2016/08/logoNegro.png"},
+    { id: 3, nombre: "Anima btt", idPlan: 2, dominio: "test.com", activo: true, expiracion: "2026-10-08", logoUrl: "https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png"},
 ];
 
 // Contraseña de todos: "password123"
@@ -136,6 +137,10 @@ export const usuarios = [
     { id: 17, CI: 20000007, nombre: "Nicolás Pereyra", correo: "nicolas.pereyra@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
     { id: 18, CI: 20000008, nombre: "Julieta Rivas", correo: "julieta.rivas@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
     { id: 19, CI: 20000009, nombre: "Federico Castro", correo: "federico.castro@providencia.edu.uy", contrasena: CONTRASENA_DE_PRUEBA, fecharegistro: "01/09/2026", rol: "lector", organizacionNombre: "Providencia", organizacionId: 2 },
+
+    // Anima btt (id 3): 1 admin + 1 lector de prueba
+    { id: 20, CI: 57642736, nombre: "ADMIN ANIMA BTT", correo: "admin@test.com", contrasena: "$2b$10$qNIGEVVgwzbDqGbMDFfi0eN8UBOPqXUf73vp0qR51iUY6h7dnuFdG", fecharegistro: "08/09/2026", rol: "admin", organizacionNombre: "Anima btt", organizacionId: 3 },
+    { id: 21, CI: 57922388, nombre: "Mauro", correo: "mauro.aires@test.com", contrasena: "$2b$10$dUJpjOTnjqB0WUH5kIDmpeWUuSxXnd1Wrf1kdekMyXnMAPLuYPS/K", fecharegistro: "08/09/2026", rol: "lector", organizacionNombre: "Anima btt", organizacionId: 3 },
 ];
 
 export const usuarios_configuracion = [
@@ -162,4 +167,5 @@ export const prestamos = [
 export const configuraciones = [
     { id: 1, idOrganizacion: 1, nombre: "configuracion1", nombreApp: "", logo: "", color_primario: "rojo", color_secundario: "azul", mensajes_personalizados: "",},
     { id: 2, idOrganizacion: 2, nombre: "configuracion2", nombreApp: "", logo: "", color_primario: "verde", color_secundario: "amarillo", mensajes_personalizados: "",},
+    { id: 3, idOrganizacion: 3, nombre: "configuracion3", nombreApp: "Biblioteca Anima BTT", logo: "https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png", color_primario: "#047857", color_secundario: "#6EE7B7", mensajes_personalizados: "",},
 ];
