@@ -16,6 +16,7 @@ import {
   usuarios as usuariosMock,
   organizaciones as organizacionesMock,
   planes as planesMock,
+  configuraciones,
 } from './mockData.js';
 
 const ROL_DB_A_MOCK = {
@@ -40,6 +41,24 @@ const organizacionDeDB = (fila) => ({
   nombre: fila.nombre,
   idPlan: fila.id_plan,
   dominio: fila.dominio,
+  activo: !!fila.activo,
+  expiracion: fila.expiracion_suscripcion,
+});
+
+const configuracionOrganizacionDeDB = (fila) => ({
+  id: fila.id,
+  logo: fila.logo,
+  colorPrimario: fila.color_primario,
+  colorSecundario: fila.color_secundario,
+  maxLibrosPorUsuario: fila.max_libros_por_usuario,
+  lugarRetiro: fila.lugar_retiro,
+  diasPrestamo: fila.dias_prestamo,
+  permiteExtension: !!fila.permite_extension,
+  maxExtensiones: fila.max_extensiones,
+  diasExtension: fila.dias_extension,
+  congelarUsuarios: !!fila.congelar_usuarios,
+  diasAtrasoCongelamiento: fila.dias_atraso_congelamiento,
+  mensajesPersonalizados: fila.mensajes_personalizados,
   activo: !!fila.activo,
   expiracion: fila.expiracion_suscripcion,
 });
@@ -69,14 +88,14 @@ const planDeDB = (fila) => ({
    USUARIOS
    ============================================================ */
 
+// Sin fallback a mock (a diferencia del resto de este archivo): esta función
+// decide si un correo "ya existe" para el alta de cuentas. Si cayera al mock
+// ante un error de conexión, un correo que sí está libre en la base real
+// podría bloquearse por un usuario fantasma que solo vive en memoria (pasó
+// de verdad: ver el email de invitación de mauro.aires@lightit.io).
 export async function buscarUsuarioPorCorreo(correo) {
-  try {
-    const [filas] = await pool.query('SELECT * FROM usuarios WHERE email = ?', [correo]);
-    if (filas[0]) return usuarioDeDB(filas[0]);
-  } catch (err) {
-    console.error('[repos] buscarUsuarioPorCorreo: falló la consulta a la DB, uso mock ->', err.message);
-  }
-  return usuariosMock.find((u) => u.correo === correo);
+  const [filas] = await pool.query('SELECT * FROM usuarios WHERE email = ?', [correo]);
+  return filas[0] ? usuarioDeDB(filas[0]) : undefined;
 }
 
 export async function buscarUsuarioPorId(id) {
@@ -117,41 +136,28 @@ export async function listarUsuarios() {
   return usuariosMock;
 }
 
+// Sin fallback a mock: un usuario "creado" que en realidad solo vive en
+// memoria es peor que un error visible. Cosas que dependen de que el id sea
+// real (el JWT de invitación, el login) fallarían más adelante y de forma
+// mucho más confusa que un 500 inmediato acá.
 export async function crearUsuario({ nombre, ci, correo, telefono, contrasena, organizacionId, rol = 'lector' }) {
-  try {
-    const [resultado] = await pool.query(
-      `INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, rol)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [organizacionId, ci, nombre, correo, telefono, contrasena, rol]
-    );
+  const [resultado] = await pool.query(
+    `INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, rol)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [organizacionId, ci, nombre, correo, telefono, contrasena, rol]
+  );
 
-    return usuarioDeDB({
-      id: resultado.insertId,
-      id_organizacion: organizacionId,
-      ci,
-      nombre,
-      email: correo,
-      telefono,
-      contrasena,
-      rol,
-      fecha_registro: new Date(),
-    });
-  } catch (err) {
-    console.error('[repos] crearUsuario: falló el insert en la DB, uso mock ->', err.message);
-
-    const usuarioNuevo = {
-      id: usuariosMock.reduce((max, u) => Math.max(max, u.id), 0) + 1,
-      CI: ci,
-      nombre,
-      correo,
-      contrasena,
-      fecharegistro: new Date().toLocaleDateString('es-UY'),
-      rol: ROL_DB_A_MOCK[rol] ?? rol,
-      organizacionId,
-    };
-    usuariosMock.push(usuarioNuevo);
-    return usuarioNuevo;
-  }
+  return usuarioDeDB({
+    id: resultado.insertId,
+    id_organizacion: organizacionId,
+    ci,
+    nombre,
+    email: correo,
+    telefono,
+    contrasena,
+    rol,
+    fecha_registro: new Date(),
+  });
 }
 
 /* ============================================================
@@ -169,6 +175,19 @@ export async function buscarOrganizacionPorId(id) {
     console.error('[repos] buscarOrganizacionPorId: falló la consulta a la DB, uso mock ->', err.message);
   }
   return organizacionesMock.find((o) => o.id === idNum);
+}
+
+export async function buscarDatosOrganizacionPorId(id) {
+  const idNum = parseInt(id, 10);
+  if (isNaN(idNum)) return undefined;
+
+  try {
+    const [filas] = await pool.query('SELECT * FROM configuraciones WHERE id_organizacion = ?', [idNum]);
+    if (filas[0]) return configuracionOrganizacionDeDB(filas[0]);
+  } catch (err) {
+    console.error('[repos] buscarDatosOrganizacionPorId: falló la consulta a la DB, uso mock ->', err.message);
+  }
+  return configuraciones.find((o) => o.id_organizacion === idNum);
 }
 
 export async function buscarOrganizacionPorDominio(dominio) {

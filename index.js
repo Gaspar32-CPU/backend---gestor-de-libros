@@ -21,9 +21,11 @@ import {
   crearOrganizacion,
   listarPlanes,
   buscarPlanPorId,
+  buscarDatosOrganizacionPorId,
 } from './repos.js';
 
 import isbnRoutes from './routes/isbn.routes.js';
+import { notificarNuevoPrestamo, notificarInvitacion } from './services/notificaciones.js';
 
 const app = express();
 const PUERTO = process.env.PORT || 3001;
@@ -237,12 +239,13 @@ app.get('/api/organizaciones/:id', verificarToken, async (req, res) => {
   }
 
   const organizacion = await buscarOrganizacionPorId(req.params.id);
+  const configuracion = await buscarDatosOrganizacionPorId(req.params.id);
 
   if (!organizacion) {
     return res.status(404).json({ error: 'Organizacion no encontrada' });
   }
 
-  res.json(organizacion);
+  res.json({ organizacion, configuracion });
 });
 
 // PUT /api/organizaciones/:id - Editar valores de una organización (admin)
@@ -343,9 +346,11 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
   }
 
+  const [, correoDominio] = correo.split('@');
+
   const creaOrganizacionNueva = Boolean(organizacion && dominio);
 
-  let organizacionId = 1; // TODO: para un lector que se suma a una org existente, esto debería resolverse por el dominio del correo, no quedar fijo en la 1.
+  let organizacionId;
   let rol = 'lector';
 
   if (creaOrganizacionNueva) {
@@ -370,6 +375,14 @@ app.post('/api/auth/register', async (req, res) => {
 
     organizacionId = organizacionNueva.id;
     rol = 'admin_organizacion';
+  } else {
+    const organizacionExistente = await buscarOrganizacionPorDominio(correoDominio);
+
+    if (!organizacionExistente) {
+      return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
+    }
+
+    organizacionId = organizacionExistente.id;
   }
 
   const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
@@ -385,6 +398,51 @@ app.post('/api/auth/register', async (req, res) => {
   });
 
   res.status(200).json({ message: 'Usuario creado' });
+});
+
+// POST /api/usuarios - Invitar un usuario a mi organización (admin)
+// A diferencia de POST /auth/register (alta pública, con contraseña propia),
+// acá el admin carga los datos de la persona y el sistema la invita: se crea
+// sin contraseña (columna NULL) y se le manda un email con el link para que
+// la cree ella misma. Se asume rol "lector": invitar a otro admin no está
+// contemplado por este endpoint.
+app.post('/api/usuarios', verificarToken, verificarAdmin, async (req, res, next) => {
+  const { nombre, cedula, correo, telefono } = req.body ?? {};
+
+  if (!nombre || !cedula || !correo || !telefono) {
+    return res.status(400).json({
+      error: 'faltan_campos',
+      mensaje: 'Faltan campos obligatorios: nombre, cedula, correo, telefono',
+    });
+  }
+
+  if (await buscarUsuarioPorCorreo(correo)) {
+    return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
+  }
+
+  try {
+    const usuarioInvitado = await crearUsuario({
+      nombre,
+      ci: cedula,
+      correo,
+      telefono,
+      contrasena: null,
+      organizacionId: req.usuario.organizacionId,
+      rol: 'lector',
+    });
+
+    const tokenInvitacion = jwt.sign(
+      { id: usuarioInvitado.id, proposito: 'crear_contrasena' },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    await notificarInvitacion({ nombre, correo, tokenInvitacion });
+
+    res.status(201).json({ id: usuarioInvitado.id, nombre, correo });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // GET /api/usuarios - Listar usuarios de mi organización (admin)
@@ -437,6 +495,15 @@ app.post('/api/auth/login', async (req, res) => {
   if (!usuarioElegido) {
   return res.status(401).json({ code: 'CREDENCIALES_INVALIDAS', message: 'Credenciales incorrectas' });  }
 
+  // Cuenta invitada por un admin que todavía no pasó por
+  // /auth/crear-contrasena: no hay hash contra el cual comparar.
+  if (!usuarioElegido.contrasena) {
+    return res.status(401).json({
+      code: 'CUENTA_SIN_CONTRASENA',
+      message: 'Todavía no creaste tu contraseña. Revisá el email de invitación.',
+    });
+  }
+
   const passwordCorrecta = await bcrypt.compare(password, usuarioElegido.contrasena);
 
   if (!passwordCorrecta) {
@@ -467,6 +534,54 @@ app.post('/api/auth/logout', (req, res) => {
 
 // POST /api/auth/recuperar - Recuperar contraseña
 app.post('/api/auth/recuperar', sinImplementar);
+
+// POST /api/auth/crear-contrasena - Primera contraseña de una cuenta invitada
+// El token viene del link que se manda por email en POST /api/usuarios (ver
+// notificarInvitacion). No requiere sesión: quien invitaron todavía no tiene
+// contraseña, así que no puede loguearse para obtener un JWT normal.
+app.post('/api/auth/crear-contrasena', async (req, res, next) => {
+  const { token, contrasena, confirmarContrasena } = req.body ?? {};
+
+  if (!token || !contrasena || !confirmarContrasena) {
+    return res.status(400).json({ error: 'Faltan token o contraseña' });
+  }
+
+  if (contrasena !== confirmarContrasena) {
+    return res.status(400).json({ error: 'Las contraseñas no coinciden' });
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'El link es inválido o ya venció' });
+  }
+
+  if (payload.proposito !== 'crear_contrasena') {
+    return res.status(400).json({ error: 'Este link no es para crear una contraseña' });
+  }
+
+  try {
+    const [[usuario]] = await pool.query('SELECT contrasena FROM usuarios WHERE id = ?', [payload.id]);
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'La cuenta ya no existe' });
+    }
+
+    // Que la cuenta ya tenga contraseña es lo que hace que el link no sirva
+    // dos veces: no hace falta guardar el token como "usado" en ningún lado.
+    if (usuario.contrasena !== null) {
+      return res.status(409).json({ error: 'Esta cuenta ya tiene una contraseña. Iniciá sesión normalmente.' });
+    }
+
+    const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
+    await pool.query('UPDATE usuarios SET contrasena = ? WHERE id = ?', [contrasenaHasheada, payload.id]);
+
+    res.status(200).json({ mensaje: 'Contraseña creada' });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /* ============================================================
    LIBROS
@@ -713,6 +828,15 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
       'INSERT INTO prestamos (id_libro, id_usuario, id_organizacion, fecha_devolucion_esperada, lugar_retiro, estado) VALUES (?, ?, ?, ?, ?, ?)',
       [libroId, usuarioId, req.usuario.organizacionId, fechaDevolucionEsperada, lugarRetiro, 'pendiente_retiro']
     );
+
+    // RF de notificaciones: avisar al admin de la organización que hay un
+    // préstamo nuevo pendiente de entrega (ver services/notificaciones.js).
+    await notificarNuevoPrestamo({
+      idPrestamo: resultado.insertId,
+      idLibro: libroId,
+      idUsuario: usuarioId,
+      idOrganizacion: req.usuario.organizacionId,
+    });
 
     res.status(201).json({ id: resultado.insertId });
   } catch (err) {
