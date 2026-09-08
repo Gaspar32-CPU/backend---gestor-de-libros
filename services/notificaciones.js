@@ -13,12 +13,15 @@ import { plantillaEmail } from './plantillaEmail.js';
  * de que un usuario pidió un libro, para que lo tengan pendiente de entrega.
  */
 export async function notificarNuevoPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
-  const [[libro]] = await pool.query('SELECT titulo FROM libros WHERE id = ?', [idLibro]);
-  const [[usuario]] = await pool.query('SELECT nombre, email FROM usuarios WHERE id = ?', [idUsuario]);
-  const [admins] = await pool.query(
-    "SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion'",
-    [idOrganizacion]
-  );
+  const [
+    [[libro]],
+    [[usuario]],
+    [admins]
+  ] = await Promise.all([
+    pool.query('SELECT titulo FROM libros WHERE id = ?', [idLibro]),
+    pool.query('SELECT nombre, email FROM usuarios WHERE id = ?', [idUsuario]),
+    pool.query("SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion'", [idOrganizacion])
+  ]);
 
   const tituloLibro = libro?.titulo ?? 'un libro';
   const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó el préstamo de "${tituloLibro}".`;
