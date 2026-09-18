@@ -7,7 +7,8 @@
     "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "repository": {
     "type": "git",
@@ -22,6 +23,7 @@
   },
   "homepage": "https://github.com/Gaspar32-CPU/backend---gestor-de-libros#readme",
   "dependencies": {
+    "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -30,6 +32,7 @@
     "mysql2": "^3.24.2"
   },
   "devDependencies": {
-    "prettier": "^3.9.6"
+    "prettier": "^3.9.6",
+    "prisma": "^7.10.0"
   }
 }
