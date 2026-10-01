@@ -23,4 +23,4 @@ Thumbs.db
 *.pem
 *.key
 
-uploads/
+uploads/node_modules/

@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Plan {
+  id              Int            @id @default(autoincrement()) @db.UnsignedInt
+  nombre          String         @unique(map: "uq_planes_nombre") @db.VarChar(100)
+  descripcion     String?        @db.Text
+  precio_mensual  Decimal        @db.Decimal(10, 2)
+  limite_usuarios Int            @db.UnsignedInt
+  limite_libros   Int            @db.UnsignedInt
+  funcionalidades Json
+  activo          Boolean        @default(true)
+  organizaciones  Organizacion[]
+
+  @@map("planes")
+}
+
+model Organizacion {
+  id                     Int                  @id @default(autoincrement()) @db.UnsignedInt
+  nombre                 String               @db.VarChar(150)
+  id_plan                Int                  @db.UnsignedInt
+  dominio                String               @unique(map: "uq_org_dominio") @db.VarChar(150)
+  activo                 Boolean              @default(true)
+  expiracion_suscripcion DateTime?            @db.Date
+  fecha_creacion         DateTime             @default(now()) @db.DateTime(0)
+  configuraciones        Configuracion?
+  libros                 Libro[]
+  plan                   Plan                 @relation(fields: [id_plan], references: [id], onUpdate: NoAction, map: "fk_org_plan")
+  prestamos              Prestamo[]
+  reportes_problemas     reportes_problemas[]
+  usuarios               Usuario[]
+
+  @@index([id_plan], map: "fk_org_plan")
+  @@map("organizaciones")
+}
+
+model Usuario {
+  id                 Int                  @id @default(autoincrement()) @db.UnsignedInt
+  id_organizacion    Int?                 @db.UnsignedInt
+  ci                 String?              @db.VarChar(20)
+  nombre             String               @db.VarChar(150)
+  email              String               @unique(map: "uq_usuarios_email") @db.VarChar(150)
+  telefono           String               @db.VarChar(30)
+  contrasena         String?              @db.VarChar(255)
+  rol                Rol                  @default(lector)
+  activo             Boolean              @default(true)
+  congelado_hasta    DateTime?            @db.Date
+  fecha_registro     DateTime             @default(now()) @db.DateTime(0)
+  notificaciones     notificaciones[]
+  prestamos          Prestamo[]
+  reportes_problemas reportes_problemas[]
+  resenas            resenas[]
+  reservas           reservas[]
+  organizaciones     Organizacion?        @relation(fields: [id_organizacion], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_usuarios_org")
+
+  @@unique([id_organizacion, ci], map: "uq_ci_organizacion")
+  @@unique([id, id_organizacion], map: "uq_usuarios_id_org")
+  @@map("usuarios")
+}
+
+model Libro {
+  id                 Int                  @id @default(autoincrement()) @db.UnsignedInt
+  id_organizacion    Int                  @db.UnsignedInt
+  titulo             String               @db.VarChar(255)
+  autor              String               @db.VarChar(150)
+  genero             String               @db.VarChar(100)
+  editorial          String?              @db.VarChar(150)
+  isbn               String?              @db.VarChar(20)
+  fecha_pub          DateTime?            @db.Date
+  resumen            String?              @db.Text
+  portada            String?              @db.VarChar(255)
+  stock              Int                  @default(1) @db.UnsignedInt
+  fecha_creacion     DateTime             @default(now()) @db.DateTime(0)
+  organizacion       Organizacion         @relation(fields: [id_organizacion], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_libros_org")
+  prestamos          Prestamo[]
+  reportes_problemas reportes_problemas[]
+  resenas            resenas[]
+  reservas           reservas[]
+
+  @@index([id_organizacion, genero], map: "idx_libros_org_genero")
+  @@index([id_organizacion, titulo], map: "idx_libros_org_titulo")
+  @@map("libros")
+}
+
+model Prestamo {
+  id                        Int              @id @default(autoincrement()) @db.UnsignedInt
+  id_usuario                Int              @db.UnsignedInt
+  id_libro                  Int              @db.UnsignedInt
+  id_organizacion           Int              @db.UnsignedInt
+  fecha_prestamo            DateTime         @default(now()) @db.DateTime(0)
+  fecha_devolucion_esperada DateTime         @db.DateTime(0)
+  fecha_devolucion_real     DateTime?        @db.DateTime(0)
+  extensiones_realizadas    Int              @default(0) @db.UnsignedTinyInt
+  lugar_retiro              String?          @db.VarChar(150)
+  estado                    prestamos_estado @default(pendiente_retiro)
+  notificaciones            notificaciones[]
+  libro                     Libro            @relation(fields: [id_libro], references: [id], onUpdate: NoAction, map: "fk_prestamos_libro")
+  organizacion              Organizacion     @relation(fields: [id_organizacion], references: [id], onUpdate: NoAction, map: "fk_prestamos_org")
+  usuarios                  Usuario          @relation(fields: [id_usuario, id_organizacion], references: [id, id_organizacion], onUpdate: NoAction, map: "fk_prestamos_usuario")
+  reservas                  reservas[]
+
+  @@index([id_usuario, id_organizacion], map: "fk_prestamos_usuario")
+  @@index([id_libro], map: "idx_prestamos_libro")
+  @@index([id_organizacion, estado], map: "idx_prestamos_org_estado")
+  @@index([estado, fecha_devolucion_esperada], map: "idx_prestamos_vencimiento")
+  @@map("prestamos")
+}
+
+model Configuracion {
+  id                        Int          @id @default(autoincrement()) @db.UnsignedInt
+  id_organizacion           Int          @unique(map: "uq_config_org") @db.UnsignedInt
+  nombre_app                String       @db.VarChar(150)
+  logo                      String?      @db.VarChar(255)
+  color_primario            String       @default("#000000") @db.Char(7)
+  color_secundario          String?      @db.Char(7)
+  max_libros_por_usuario    Int          @default(3) @db.UnsignedTinyInt
+  lugar_retiro              String       @db.VarChar(150)
+  dias_prestamo             Int          @default(30) @db.UnsignedSmallInt
+  permite_extension         Boolean      @default(true)
+  max_extensiones           Int          @default(2) @db.UnsignedTinyInt
+  dias_extension            Int          @default(30) @db.UnsignedSmallInt
+  congelar_usuarios         Boolean      @default(false)
+  dias_atraso_congelamiento Int?         @db.UnsignedSmallInt
+  mensajes_personalizados   Json?
+  organizacion              Organizacion @relation(fields: [id_organizacion], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_config_org")
+
+  @@map("configuraciones")
+}
+
+model notificaciones {
+  id          Int                  @id @default(autoincrement()) @db.UnsignedInt
+  id_usuario  Int                  @db.UnsignedInt
+  id_prestamo Int?                 @db.UnsignedInt
+  tipo        notificaciones_tipo
+  canal       notificaciones_canal @default(sistema)
+  mensaje     String               @db.Text
+  leida       Boolean              @default(false)
+  fecha_envio DateTime             @default(now()) @db.DateTime(0)
+  prestamos   Prestamo?            @relation(fields: [id_prestamo], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notif_prestamo")
+  usuarios    Usuario              @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notif_usuario")
+
+  @@index([id_prestamo], map: "idx_notif_prestamo")
+  @@index([id_usuario, leida], map: "idx_notif_usuario_leida")
+}
+
+model reportes_problemas {
+  id              Int                       @id @default(autoincrement()) @db.UnsignedInt
+  id_usuario      Int                       @db.UnsignedInt
+  id_organizacion Int                       @db.UnsignedInt
+  id_libro        Int?                      @db.UnsignedInt
+  descripcion     String                    @db.Text
+  estado          reportes_problemas_estado @default(abierto)
+  fecha_reporte   DateTime                  @default(now()) @db.DateTime(0)
+  libros          Libro?                    @relation(fields: [id_libro], references: [id], onUpdate: NoAction, map: "fk_reportes_libro")
+  organizaciones  Organizacion              @relation(fields: [id_organizacion], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reportes_org")
+  usuarios        Usuario                   @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reportes_usuario")
+
+  @@index([id_libro], map: "idx_reportes_libro")
+  @@index([id_organizacion, estado], map: "idx_reportes_org_estado")
+  @@index([id_usuario], map: "idx_reportes_usuario")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model resenas {
+  id           Int      @id @default(autoincrement()) @db.UnsignedInt
+  id_usuario   Int      @db.UnsignedInt
+  id_libro     Int      @db.UnsignedInt
+  calificacion Int      @db.UnsignedTinyInt
+  comentario   String?  @db.Text
+  fecha        DateTime @default(now()) @db.DateTime(0)
+  libros       Libro    @relation(fields: [id_libro], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_resenas_libro")
+  usuarios     Usuario  @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_resenas_usuario")
+
+  @@unique([id_usuario, id_libro], map: "uq_resena_usuario_libro")
+  @@index([id_libro], map: "idx_resenas_libro")
+}
+
+model reservas {
+  id              Int             @id @default(autoincrement()) @db.UnsignedInt
+  id_usuario      Int             @db.UnsignedInt
+  id_libro        Int             @db.UnsignedInt
+  id_organizacion Int             @db.UnsignedInt
+  fecha_reserva   DateTime        @default(now()) @db.DateTime(0)
+  fecha_retiro    DateTime        @db.Date
+  estado          reservas_estado @default(activa)
+  id_prestamo     Int?            @db.UnsignedInt
+  libros          Libro           @relation(fields: [id_libro], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reservas_libro")
+  prestamos       Prestamo?       @relation(fields: [id_prestamo], references: [id], onUpdate: NoAction, map: "fk_reservas_prestamo")
+  usuarios        Usuario         @relation(fields: [id_usuario, id_organizacion], references: [id, id_organizacion], onDelete: Cascade, onUpdate: NoAction, map: "fk_reservas_usuario")
+
+  @@index([id_usuario, id_organizacion], map: "fk_reservas_usuario")
+  @@index([id_libro], map: "idx_reservas_libro")
+  @@index([id_organizacion, estado], map: "idx_reservas_org_estado")
+  @@index([id_prestamo], map: "idx_reservas_prestamo")
+}
+
+enum Rol {
+  lector
+  admin_organizacion
+  admin_plataforma
+}
+
+enum notificaciones_tipo {
+  nuevo_prestamo
+  listo_para_retiro
+  vencimiento_10_dias
+  vencimiento_1_dia
+  limite_alcanzado
+  recomendacion
+  nuevo_libro
+}
+
+enum notificaciones_canal {
+  sistema
+  email
+}
+
+enum reportes_problemas_estado {
+  abierto
+  en_revision
+  resuelto
+}
+
+enum reservas_estado {
+  activa
+  convertida
+  cancelada
+  expirada
+}
+
+enum prestamos_estado {
+  pendiente_retiro
+  activo
+  devuelto
+  atrasado
+  cancelado
+}
