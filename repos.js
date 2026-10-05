@@ -1,25 +1,17 @@
 // repos.js
 //
-// Cada función de acá intenta primero contra MySQL. Si la consulta falla
-// (por ejemplo, la base no está levantada) o la fila/registro no existe,
-// cae en los datos de mockData.js para que el resto del sistema siga
-// funcionando mientras se termina de migrar todo a la base real.
+// Todas las consultas van contra MySQL, sin datos de respaldo en memoria. Si
+// la consulta falla (la base no está levantada, credenciales mal, etc.), el
+// error sube hasta el manejador de errores de index.js, que le responde al
+// cliente con un mensaje claro en vez de devolver datos inventados.
 //
-// La tabla "usuarios" y el mock de usuarios no tienen exactamente los mismos
-// nombres de columna ni los mismos valores de rol (la DB usa
-// admin_organizacion/admin_plataforma, el resto del código y el mock usan
-// admin/super-admin, que es lo que esperan los middlewares de
-// middlewares/auth.js). Por eso las filas que vienen de la DB se normalizan
-// a la forma del mock antes de devolverlas.
+// La tabla "usuarios" no usa los mismos valores de rol que el resto del
+// código: la DB usa admin_organizacion/admin_plataforma y los middlewares de
+// middlewares/auth.js esperan admin/super-admin. Por eso las filas se
+// normalizan antes de devolverlas.
 import { pool } from './db.js';
-import {
-  usuarios as usuariosMock,
-  organizaciones as organizacionesMock,
-  planes as planesMock,
-  configuraciones,
-} from './mockData.js';
 
-const ROL_DB_A_MOCK = {
+const ROL_DB_A_APP = {
   lector: 'lector',
   admin_organizacion: 'admin',
   admin_plataforma: 'super-admin',
@@ -32,7 +24,7 @@ const usuarioDeDB = (fila) => ({
   correo: fila.email,
   contrasena: fila.contrasena,
   fecharegistro: fila.fecha_registro,
-  rol: ROL_DB_A_MOCK[fila.rol] ?? fila.rol,
+  rol: ROL_DB_A_APP[fila.rol] ?? fila.rol,
   organizacionId: fila.id_organizacion,
 });
 
@@ -47,6 +39,8 @@ const organizacionDeDB = (fila) => ({
 
 const configuracionOrganizacionDeDB = (fila) => ({
   id: fila.id,
+  organizacionId: fila.id_organizacion,
+  nombreApp: fila.nombre_app,
   logo: fila.logo,
   colorPrimario: fila.color_primario,
   colorSecundario: fila.color_secundario,
@@ -59,40 +53,25 @@ const configuracionOrganizacionDeDB = (fila) => ({
   congelarUsuarios: !!fila.congelar_usuarios,
   diasAtrasoCongelamiento: fila.dias_atraso_congelamiento,
   mensajesPersonalizados: fila.mensajes_personalizados,
-  activo: !!fila.activo,
-  expiracion: fila.expiracion_suscripcion,
 });
 
-// La tabla "planes" todavía no tiene las columnas de marketing que sí tiene
-// el mock (codigo, tagline, icono, destacado, caracteristicas, precioAnual):
-// son datos pensados para la landing de ventas, no para la lógica de
-// negocio, y no se definieron en el schema. Hasta que se agreguen, quedan
-// vacíos cuando el plan viene de la DB. Esto es una decisión tomada acá,
-// no algo ya definido con el equipo: avisar antes de depender de esos
-// campos para un plan que salga de la base.
+// Solo los campos que existen en la tabla "planes". Lo que la landing
+// muestra de más (precio anual, etc.) lo calcula el frontend.
+// mysql2 ya convierte la columna JSON "funcionalidades" en un objeto.
 const planDeDB = (fila) => ({
   id: fila.id,
-  codigo: null,
   nombre: fila.nombre,
-  tagline: '',
   descripcion: fila.descripcion,
-  icono: '',
-  destacado: false,
   precioMensual: Number(fila.precio_mensual),
-  precioAnual: null,
-  limites: { usuarios: fila.limite_usuarios, admins: null, titulos: fila.limite_libros },
-  caracteristicas: [],
+  limites: { usuarios: fila.limite_usuarios, titulos: fila.limite_libros },
+  funcionalidades: fila.funcionalidades ?? {},
+  activo: !!fila.activo,
 });
 
 /* ============================================================
    USUARIOS
    ============================================================ */
 
-// Sin fallback a mock (a diferencia del resto de este archivo): esta función
-// decide si un correo "ya existe" para el alta de cuentas. Si cayera al mock
-// ante un error de conexión, un correo que sí está libre en la base real
-// podría bloquearse por un usuario fantasma que solo vive en memoria (pasó
-// de verdad: ver el email de invitación de mauro.aires@lightit.io).
 export async function buscarUsuarioPorCorreo(correo) {
   const [filas] = await pool.query('SELECT * FROM usuarios WHERE email = ?', [correo]);
   return filas[0] ? usuarioDeDB(filas[0]) : undefined;
@@ -102,46 +81,29 @@ export async function buscarUsuarioPorId(id) {
   const idNum = parseInt(id, 10);
   if (isNaN(idNum)) return undefined;
 
-  try {
-    const [filas] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [idNum]);
-    if (filas[0]) return usuarioDeDB(filas[0]);
-  } catch (err) {
-    console.error('[repos] buscarUsuarioPorId: falló la consulta a la DB, uso mock ->', err.message);
-  }
-  return usuariosMock.find((u) => u.id === idNum);
+  const [filas] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [idNum]);
+  return filas[0] ? usuarioDeDB(filas[0]) : undefined;
 }
 
 export async function listarUsuariosPorOrganizacion(idOrganizacion) {
-  try {
-    const [filas] = await pool.query('SELECT * FROM usuarios WHERE id_organizacion = ?', [
-      idOrganizacion,
-    ]);
-    if (filas.length > 0) return filas.map(usuarioDeDB);
-  } catch (err) {
-    console.error(
-      '[repos] listarUsuariosPorOrganizacion: falló la consulta a la DB, uso mock ->',
-      err.message
-    );
-  }
-  return usuariosMock.filter((u) => u.organizacionId === idOrganizacion);
+  const [filas] = await pool.query('SELECT * FROM usuarios WHERE id_organizacion = ?', [
+    idOrganizacion,
+  ]);
+  return filas.map(usuarioDeDB);
 }
 
 export async function listarUsuarios() {
-  try {
-    const [filas] = await pool.query('SELECT * FROM usuarios');
-    if (filas.length > 0) return filas.map(usuarioDeDB);
-  } catch (err) {
-    console.error('[repos] listarUsuarios: falló la consulta a la DB, uso mock ->', err.message);
-  }
-  return usuariosMock;
+  const [filas] = await pool.query('SELECT * FROM usuarios');
+  return filas.map(usuarioDeDB);
 }
 
-// Sin fallback a mock: un usuario "creado" que en realidad solo vive en
-// memoria es peor que un error visible. Cosas que dependen de que el id sea
-// real (el JWT de invitación, el login) fallarían más adelante y de forma
-// mucho más confusa que un 500 inmediato acá.
-export async function crearUsuario({ nombre, ci, correo, telefono, contrasena, organizacionId, rol = 'lector' }) {
-  const [resultado] = await pool.query(
+// `conexion` permite correr el insert dentro de una transacción (ver
+// POST /api/auth/register); si no se pasa, usa el pool como siempre.
+export async function crearUsuario(
+  { nombre, ci, correo, telefono, contrasena, organizacionId, rol = 'lector' },
+  conexion = pool
+) {
+  const [resultado] = await conexion.query(
     `INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, rol)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [organizacionId, ci, nombre, correo, telefono, contrasena, rol]
@@ -168,68 +130,38 @@ export async function buscarOrganizacionPorId(id) {
   const idNum = parseInt(id, 10);
   if (isNaN(idNum)) return undefined;
 
-  try {
-    const [filas] = await pool.query('SELECT * FROM organizaciones WHERE id = ?', [idNum]);
-    if (filas[0]) return organizacionDeDB(filas[0]);
-  } catch (err) {
-    console.error('[repos] buscarOrganizacionPorId: falló la consulta a la DB, uso mock ->', err.message);
-  }
-  return organizacionesMock.find((o) => o.id === idNum);
+  const [filas] = await pool.query('SELECT * FROM organizaciones WHERE id = ?', [idNum]);
+  return filas[0] ? organizacionDeDB(filas[0]) : undefined;
 }
 
 export async function buscarDatosOrganizacionPorId(id) {
   const idNum = parseInt(id, 10);
   if (isNaN(idNum)) return undefined;
 
-  try {
-    const [filas] = await pool.query('SELECT * FROM configuraciones WHERE id_organizacion = ?', [idNum]);
-    if (filas[0]) return configuracionOrganizacionDeDB(filas[0]);
-  } catch (err) {
-    console.error('[repos] buscarDatosOrganizacionPorId: falló la consulta a la DB, uso mock ->', err.message);
-  }
-  return configuraciones.find((o) => o.id_organizacion === idNum);
+  const [filas] = await pool.query('SELECT * FROM configuraciones WHERE id_organizacion = ?', [idNum]);
+  return filas[0] ? configuracionOrganizacionDeDB(filas[0]) : undefined;
 }
 
 export async function buscarOrganizacionPorDominio(dominio) {
-  try {
-    const [filas] = await pool.query('SELECT * FROM organizaciones WHERE dominio = ?', [dominio]);
-    if (filas[0]) return organizacionDeDB(filas[0]);
-  } catch (err) {
-    console.error('[repos] buscarOrganizacionPorDominio: falló la consulta a la DB, uso mock ->', err.message);
-  }
-  return organizacionesMock.find((o) => o.dominio === dominio);
+  const [filas] = await pool.query('SELECT * FROM organizaciones WHERE dominio = ?', [dominio]);
+  return filas[0] ? organizacionDeDB(filas[0]) : undefined;
 }
 
-export async function crearOrganizacion({ nombre, idPlan, dominio, expiracion }) {
-  try {
-    const [resultado] = await pool.query(
-      `INSERT INTO organizaciones (nombre, id_plan, dominio, activo, expiracion_suscripcion)
-       VALUES (?, ?, ?, 1, ?)`,
-      [nombre, idPlan, dominio, expiracion]
-    );
+export async function crearOrganizacion({ nombre, idPlan, dominio, expiracion }, conexion = pool) {
+  const [resultado] = await conexion.query(
+    `INSERT INTO organizaciones (nombre, id_plan, dominio, activo, expiracion_suscripcion)
+     VALUES (?, ?, ?, 1, ?)`,
+    [nombre, idPlan, dominio, expiracion]
+  );
 
-    return organizacionDeDB({
-      id: resultado.insertId,
-      nombre,
-      id_plan: idPlan,
-      dominio,
-      activo: 1,
-      expiracion_suscripcion: expiracion,
-    });
-  } catch (err) {
-    console.error('[repos] crearOrganizacion: falló el insert en la DB, uso mock ->', err.message);
-
-    const organizacionNueva = {
-      id: organizacionesMock.reduce((max, o) => Math.max(max, o.id), 0) + 1,
-      nombre,
-      idPlan,
-      dominio,
-      activo: true,
-      expiracion,
-    };
-    organizacionesMock.push(organizacionNueva);
-    return organizacionNueva;
-  }
+  return organizacionDeDB({
+    id: resultado.insertId,
+    nombre,
+    id_plan: idPlan,
+    dominio,
+    activo: 1,
+    expiracion_suscripcion: expiracion,
+  });
 }
 
 /* ============================================================
@@ -237,24 +169,56 @@ export async function crearOrganizacion({ nombre, idPlan, dominio, expiracion })
    ============================================================ */
 
 export async function listarPlanes() {
-  try {
-    const [filas] = await pool.query('SELECT * FROM planes');
-    if (filas.length > 0) return filas.map(planDeDB);
-  } catch (err) {
-    console.error('[repos] listarPlanes: falló la consulta a la DB, uso mock ->', err.message);
-  }
-  return planesMock;
+  const [filas] = await pool.query('SELECT * FROM planes WHERE activo = 1 ORDER BY precio_mensual');
+  return filas.map(planDeDB);
 }
 
 export async function buscarPlanPorId(id) {
   const idNum = parseInt(id, 10);
   if (isNaN(idNum)) return undefined;
 
-  try {
-    const [filas] = await pool.query('SELECT * FROM planes WHERE id = ?', [idNum]);
-    if (filas[0]) return planDeDB(filas[0]);
-  } catch (err) {
-    console.error('[repos] buscarPlanPorId: falló la consulta a la DB, uso mock ->', err.message);
+  const [filas] = await pool.query('SELECT * FROM planes WHERE id = ?', [idNum]);
+  return filas[0] ? planDeDB(filas[0]) : undefined;
+}
+
+export async function crearPlan({ nombre, descripcion, precioMensual, limiteUsuarios, limiteLibros, funcionalidades }) {
+  const [resultado] = await pool.query(
+    `INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios, limite_libros, funcionalidades)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [nombre, descripcion, precioMensual, limiteUsuarios, limiteLibros, JSON.stringify(funcionalidades)]
+  );
+  return buscarPlanPorId(resultado.insertId);
+}
+
+// Solo actualiza los campos que vienen definidos; el resto queda como estaba.
+export async function actualizarPlan(id, campos) {
+  const COLUMNAS = {
+    nombre: 'nombre',
+    descripcion: 'descripcion',
+    precioMensual: 'precio_mensual',
+    limiteUsuarios: 'limite_usuarios',
+    limiteLibros: 'limite_libros',
+    funcionalidades: 'funcionalidades',
+    activo: 'activo',
+  };
+
+  const sets = [];
+  const valores = [];
+  for (const [campo, columna] of Object.entries(COLUMNAS)) {
+    if (campos[campo] === undefined) continue;
+    sets.push(`${columna} = ?`);
+    valores.push(campo === 'funcionalidades' ? JSON.stringify(campos[campo]) : campos[campo]);
   }
-  return planesMock.find((p) => p.id === idNum);
+
+  if (sets.length > 0) {
+    await pool.query(`UPDATE planes SET ${sets.join(', ')} WHERE id = ?`, [...valores, id]);
+  }
+  return buscarPlanPorId(id);
+}
+
+// Devuelve true si borró el plan. Si hay organizaciones usando el plan, MySQL
+// lo impide (FK con ON DELETE RESTRICT) y el error sube a quien llama.
+export async function eliminarPlan(id) {
+  const [resultado] = await pool.query('DELETE FROM planes WHERE id = ?', [id]);
+  return resultado.affectedRows > 0;
 }
