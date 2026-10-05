@@ -1,0 +1,42 @@
+name: Build check
+
+# Reproduce exactamente lo que corre el script de deploy en el servidor
+# (npm ci --omit=dev, que dispara el postinstall) para detectar en el PR
+# cualquier cosa que rompa el deploy, en vez de enterarnos cuando el
+# servicio ya está caído en producción.
+#
+# Importante: un simple "¿el comando terminó con exit 0?" NO alcanza acá.
+# El bug que motivó este workflow (postinstall "prisma skills sync || exit 0")
+# terminaba en exit 0 pase lo que pase, ocultando el fallo real. Por eso
+# "Generar Prisma Client" corre aparte, sin ningún "|| exit 0" ni similar
+# que pueda silenciar un error futuro.
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # DATABASE_URL no necesita apuntar a una base real: prisma.config.ts
+      # solo la exige para poder cargarse (ver env("DATABASE_URL")), y
+      # "prisma generate" no se conecta a la base, solo lee schema.prisma.
+      - name: Instalar dependencias de producción (igual que el deploy real)
+        run: npm ci --omit=dev
+        env:
+          DATABASE_URL: "mysql://usuario:password@localhost:3306/ci"
+
+      # Paso separado y explícito: si alguien vuelve a mover "prisma" a
+      # devDependencies, este --omit=dev no lo instala y esto falla acá,
+      # no en producción.
+      - name: Generar Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: "mysql://usuario:password@localhost:3306/ci"
