@@ -347,12 +347,14 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   const [, correoDominio] = correo.split('@');
+  const dominioConArroba = `@${correoDominio}`;
 
   const creaOrganizacionNueva = Boolean(organizacion && dominio);
 
   let organizacionId;
   let rol = 'lector';
 
+<<<<<<< Updated upstream
   if (creaOrganizacionNueva) {
     if (!planId) {
       return res.status(400).json({ error: 'Falta el plan seleccionado' });
@@ -377,6 +379,10 @@ app.post('/api/auth/register', async (req, res) => {
     rol = 'admin_organizacion';
   } else {
     const organizacionExistente = await buscarOrganizacionPorDominio(correoDominio);
+=======
+  if (!creaOrganizacionNueva) {
+    const organizacionExistente = await buscarOrganizacionPorDominio(dominioConArroba);
+>>>>>>> Stashed changes
 
     if (!organizacionExistente) {
       return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
