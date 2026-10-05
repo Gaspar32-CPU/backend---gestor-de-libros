@@ -19,7 +19,7 @@ INSERT INTO configuraciones (id_organizacion, nombre_app, logo, color_primario, 
   (3, 'Biblioteca Anima BTT',   'https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png',
       '#047857', '#6EE7B7', 2, 'Recepción sede Anima BTT', 15, 1, 1, 30, 0);
 
--- Mismos usuarios que en mockData.js (mismo orden => mismos id autoincrementales).
+-- Usuarios de prueba (el orden define los id autoincrementales).
 -- Contraseña de todos: "password123"
 INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, rol) VALUES
   (NULL, NULL,        'Super Admin',       'super@plataforma.com',            '099000000',

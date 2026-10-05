@@ -9,7 +9,7 @@ import {
   verificarAdmin,
   verificarSuperAdmin,
 } from './middlewares/auth.js';
-import { planes as planesMock, planesComparativa } from './mockData.js';
+import { planesComparativa } from './contenido/planesComparativa.js';
 import {
   buscarUsuarioPorCorreo,
   buscarUsuarioPorId,
@@ -21,6 +21,9 @@ import {
   crearOrganizacion,
   listarPlanes,
   buscarPlanPorId,
+  crearPlan,
+  actualizarPlan,
+  eliminarPlan,
   buscarDatosOrganizacionPorId,
 } from './repos.js';
 
@@ -50,21 +53,8 @@ app.use(
 );
 
 /* ============================================================
-   DATOS EN MEMORIA (temporal, hasta conectar MySQL)
-   ============================================================ */
-
-const organizacionesDB = [];
-const configuracionesDB = [];
-
-/* ============================================================
    HELPERS
    ============================================================ */
-
-const buscarPorId = (array, id) => {
-  const idNum = parseInt(id);
-  if (isNaN(idNum)) return undefined;
-  return array.find((item) => item.id === idNum);
-};
 
 /**
  * verificarAdmin confirma que sos admin, pero no de CUÁL organización.
@@ -134,7 +124,7 @@ app.get('/api/planes', async (req, res) => {
 // Nota de orden: va ANTES de /api/planes/:id para que Express no interprete
 // "comparativa" como un valor de :id (mismo patrón que /prestamos/mis-prestamos).
 // La comparativa es contenido de marketing fijo: no tiene tabla propia en la
-// DB, así que se sirve directo del mock.
+// DB, así que se sirve desde contenido/planesComparativa.js.
 app.get('/api/planes/comparativa', (req, res) => {
   res.json(planesComparativa);
 });
@@ -151,64 +141,55 @@ app.get('/api/planes/:id', async (req, res) => {
 });
 
 // POST /api/planes - Crear un nuevo plan (solo super-admin)
-app.post('/api/planes', verificarToken, verificarSuperAdmin, (req, res) => {
-  const { codigo, nombre, precioMensual, precioAnual } = req.body ?? {};
+// Los campos son los de la tabla "planes" (ver db/init/01_schema.sql).
+app.post('/api/planes', verificarToken, verificarSuperAdmin, async (req, res) => {
+  const { nombre, descripcion, precioMensual, limiteUsuarios, limiteLibros, funcionalidades } =
+    req.body ?? {};
 
-  if (!codigo || !nombre || !precioMensual || !precioAnual) {
+  if (!nombre || precioMensual == null || limiteUsuarios == null || limiteLibros == null) {
     return res.status(400).json({
-      error: 'Faltan campos obligatorios: codigo, nombre, precioMensual, precioAnual',
+      error: 'faltan_campos',
+      mensaje: 'Faltan campos obligatorios: nombre, precioMensual, limiteUsuarios, limiteLibros',
     });
   }
 
-  if (planesMock.some((p) => p.codigo === codigo)) {
-    return res.status(409).json({ error: 'Ya existe un plan con ese código' });
-  }
-
-  const idNuevo = planesMock.reduce((max, p) => Math.max(max, p.id), 0) + 1;
-
-  const planNuevo = {
-    id: idNuevo,
-    codigo,
+  const planNuevo = await crearPlan({
     nombre,
-    tagline: req.body.tagline ?? '',
-    descripcion: req.body.descripcion ?? '',
-    icono: req.body.icono ?? '',
-    destacado: req.body.destacado ?? false,
-    ...(req.body.etiquetaDestacado && { etiquetaDestacado: req.body.etiquetaDestacado }),
+    descripcion: descripcion ?? null,
     precioMensual,
-    precioAnual,
-    limites: req.body.limites ?? {},
-    caracteristicas: req.body.caracteristicas ?? [],
-  };
-
-  planesMock.push(planNuevo);
+    limiteUsuarios,
+    limiteLibros,
+    funcionalidades: funcionalidades ?? {},
+  });
 
   res.status(201).json(planNuevo);
 });
 
 // PUT /api/planes/:id - Editar valores de un plan (solo super-admin)
-app.put('/api/planes/:id', verificarToken, verificarSuperAdmin, (req, res) => {
-  const plan = buscarPorId(planesMock, req.params.id);
-
-  if (!plan) {
-    return res.status(404).json({ error: 'Plan no encontrado' });
+app.put('/api/planes/:id', verificarToken, verificarSuperAdmin, async (req, res) => {
+  if (!(await buscarPlanPorId(req.params.id))) {
+    return res.status(404).json({ error: 'no_encontrado', mensaje: 'Plan no encontrado' });
   }
 
-  const { id, ...camposEditables } = req.body ?? {};
-  Object.assign(plan, camposEditables);
-
-  res.json(plan);
+  res.json(await actualizarPlan(req.params.id, req.body ?? {}));
 });
 
 // DELETE /api/planes/:id - Eliminar un plan específico (solo super-admin)
-app.delete('/api/planes/:id', verificarToken, verificarSuperAdmin, (req, res) => {
-  const indice = planesMock.findIndex((p) => p.id === parseInt(req.params.id, 10));
-
-  if (indice === -1) {
-    return res.status(404).json({ error: 'Plan no encontrado' });
+app.delete('/api/planes/:id', verificarToken, verificarSuperAdmin, async (req, res) => {
+  try {
+    if (!(await eliminarPlan(req.params.id))) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Plan no encontrado' });
+    }
+  } catch (err) {
+    // Hay organizaciones con este plan (FK con ON DELETE RESTRICT).
+    if (err.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(409).json({
+        error: 'plan_en_uso',
+        mensaje: 'No se puede eliminar: hay organizaciones usando este plan. Podés desactivarlo con PUT (activo: false).',
+      });
+    }
+    throw err;
   }
-
-  planesMock.splice(indice, 1);
 
   res.status(200).json({ mensaje: 'Plan eliminado' });
 });
@@ -279,14 +260,12 @@ app.post('/api/organizaciones/:id/configuracion', verificarToken, verificarAdmin
 });
 
 // GET /api/organizaciones/:id/configuracion - Obtener configuración (admin)
-app.get('/api/organizaciones/:id/configuracion', verificarToken, verificarAdmin, (req, res) => {
+app.get('/api/organizaciones/:id/configuracion', verificarToken, verificarAdmin, async (req, res) => {
   if (!esDeMiOrganizacion(req, req.params.id)) {
     return res.status(403).json({ error: 'No autorizado' });
   }
 
-  const configuracion = configuracionesDB.find(
-    (c) => c.organizacionId === parseInt(req.params.id)
-  );
+  const configuracion = await buscarDatosOrganizacionPorId(req.params.id);
 
   if (!configuracion) {
     return res.status(404).json({ error: 'Configuracion no encontrada' });
@@ -350,58 +329,67 @@ app.post('/api/auth/register', async (req, res) => {
   const dominioConArroba = `@${correoDominio}`;
 
   const creaOrganizacionNueva = Boolean(organizacion && dominio);
-
-  let organizacionId;
-  let rol = 'lector';
-
-<<<<<<< Updated upstream
-  if (creaOrganizacionNueva) {
-    if (!planId) {
-      return res.status(400).json({ error: 'Falta el plan seleccionado' });
-    }
-
-    if (await buscarOrganizacionPorDominio(dominio)) {
-      return res.status(409).json({ code: 'DOMINIO_YA_REGISTRADO', message: 'Ya existe una organización con ese dominio' });
-    }
-
-    const mesesSuscripcion = ciclo === 'anual' ? 12 : 1;
-    const expiracion = new Date();
-    expiracion.setMonth(expiracion.getMonth() + mesesSuscripcion);
-
-    const organizacionNueva = await crearOrganizacion({
-      nombre: organizacion,
-      idPlan: planId,
-      dominio,
-      expiracion,
-    });
-
-    organizacionId = organizacionNueva.id;
-    rol = 'admin_organizacion';
-  } else {
-    const organizacionExistente = await buscarOrganizacionPorDominio(correoDominio);
-=======
-  if (!creaOrganizacionNueva) {
-    const organizacionExistente = await buscarOrganizacionPorDominio(dominioConArroba);
->>>>>>> Stashed changes
-
-    if (!organizacionExistente) {
-      return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
-    }
-
-    organizacionId = organizacionExistente.id;
-  }
-
   const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
 
-  await crearUsuario({
+  const datosUsuario = {
     nombre,
     ci: cedula,
     correo,
     telefono,
     contrasena: contrasenaHasheada,
-    organizacionId,
-    rol,
-  });
+  };
+
+  if (!creaOrganizacionNueva) {
+    const organizacionExistente = await buscarOrganizacionPorDominio(dominioConArroba);
+
+    if (!organizacionExistente) {
+      return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
+    }
+
+    await crearUsuario({ ...datosUsuario, organizacionId: organizacionExistente.id, rol: 'lector' });
+    return res.status(200).json({ message: 'Usuario creado' });
+  }
+
+  if (!planId) {
+    return res.status(400).json({ error: 'Falta el plan seleccionado' });
+  }
+
+  if (!(await buscarPlanPorId(planId))) {
+    return res.status(400).json({ code: 'PLAN_INEXISTENTE', message: 'El plan seleccionado no existe' });
+  }
+
+  if (await buscarOrganizacionPorDominio(dominio)) {
+    return res.status(409).json({ code: 'DOMINIO_YA_REGISTRADO', message: 'Ya existe una organización con ese dominio' });
+  }
+
+  const mesesSuscripcion = ciclo === 'anual' ? 12 : 1;
+  const expiracion = new Date();
+  expiracion.setMonth(expiracion.getMonth() + mesesSuscripcion);
+
+  // Organización y admin van juntos: si falla el usuario (ej: CI repetida),
+  // el rollback borra la organización. Si no, quedaría una organización sin
+  // admin y el próximo intento rebotaría con DOMINIO_YA_REGISTRADO.
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+
+    const organizacionNueva = await crearOrganizacion(
+      { nombre: organizacion, idPlan: planId, dominio, expiracion },
+      conexion
+    );
+
+    await crearUsuario(
+      { ...datosUsuario, organizacionId: organizacionNueva.id, rol: 'admin_organizacion' },
+      conexion
+    );
+
+    await conexion.commit();
+  } catch (err) {
+    await conexion.rollback();
+    throw err;
+  } finally {
+    conexion.release();
+  }
 
   res.status(200).json({ message: 'Usuario creado' });
 });
@@ -876,10 +864,49 @@ app.use((req, res) => {
   });
 });
 
-// Cualquier error no capturado en un handler
+// Errores de mysql2 que significan "no hay base de datos": el servidor está
+// caído, las credenciales del .env no sirven o la base no existe. No es un
+// bug del endpoint, así que se responde 503 (servicio no disponible).
+const ERRORES_SIN_CONEXION_DB = new Set([
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'PROTOCOL_CONNECTION_LOST',
+  'ER_ACCESS_DENIED_ERROR',
+  'ER_BAD_DB_ERROR',
+]);
+
+// Cualquier error no capturado en un handler. Express 5 manda acá también
+// los errores de los handlers async, así que una consulta que falla no
+// tumba el servidor: se loguea y el cliente recibe un mensaje.
 app.use((err, req, res, next) => {
-  console.error('[error]', err.message);
-  res.status(500).json({ error: 'error_interno' });
+  console.error(`[error] ${req.method} ${req.originalUrl} ->`, err.code ?? '', err.message);
+
+  if (ERRORES_SIN_CONEXION_DB.has(err.code)) {
+    return res.status(503).json({
+      error: 'db_no_disponible',
+      mensaje: 'No pudimos conectarnos con la base de datos. Probá de nuevo en unos minutos.',
+    });
+  }
+
+  if (err.code === 'ER_DUP_ENTRY') {
+    return res.status(409).json({
+      error: 'registro_duplicado',
+      mensaje: 'Ya existe un registro con esos datos.',
+    });
+  }
+
+  res.status(500).json({
+    error: 'error_interno',
+    mensaje: 'Ocurrió un error inesperado. Probá de nuevo más tarde.',
+  });
+});
+
+// Red de seguridad para promesas que fallan fuera de un request (por ejemplo
+// un envío de mail que nadie espera con await). Sin esto, Node corta el
+// proceso y se cae todo el backend por un solo error.
+process.on('unhandledRejection', (err) => {
+  console.error('[unhandledRejection]', err?.code ?? '', err?.message ?? err);
 });
 
 /* ============================================================ */
