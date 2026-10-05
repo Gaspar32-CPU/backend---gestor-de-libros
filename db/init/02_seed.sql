@@ -7,9 +7,9 @@ INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios, limite
   ('Premium',  'Sin límites prácticos',    99.00, 5000, 50000,'{"reservas": true,  "reportes": true}');
 
 INSERT INTO organizaciones (nombre, id_plan, dominio, expiracion_suscripcion) VALUES
-  ('Anima BT',    2, 'anima.edu.uy',       DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
-  ('Providencia', 1, 'providencia.edu.uy', NULL),
-  ('Anima btt',   2, 'test.com',           '2026-10-08');
+  ('Anima BT',    2, '@anima.edu.uy',       DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+  ('Providencia', 1, '@providencia.edu.uy', NULL),
+  ('Anima btt',   2, '@test.com',           '2026-10-08');
 
 INSERT INTO configuraciones (id_organizacion, nombre_app, logo, color_primario, color_secundario,
                              max_libros_por_usuario, lugar_retiro, dias_prestamo,

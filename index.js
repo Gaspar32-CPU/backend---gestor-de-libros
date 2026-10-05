@@ -325,10 +325,18 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
   }
 
+  // Los dominios se guardan y se buscan siempre con "@" adelante
+  // ("@anima.edu.uy"), así el registro de lectores y el alta de
+  // organizaciones comparan contra el mismo formato.
   const [, correoDominio] = correo.split('@');
   const dominioConArroba = `@${correoDominio}`;
 
   const creaOrganizacionNueva = Boolean(organizacion && dominio);
+  // En el alta, quien contrata puede escribir "@anima.edu.uy" o
+  // "anima.edu.uy": se normaliza a la forma con "@".
+  const dominioOrganizacion = creaOrganizacionNueva
+    ? `@${dominio.trim().replace(/^@+/, '')}`
+    : null;
   const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
 
   const datosUsuario = {
@@ -358,7 +366,7 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ code: 'PLAN_INEXISTENTE', message: 'El plan seleccionado no existe' });
   }
 
-  if (await buscarOrganizacionPorDominio(dominio)) {
+  if (await buscarOrganizacionPorDominio(dominioOrganizacion)) {
     return res.status(409).json({ code: 'DOMINIO_YA_REGISTRADO', message: 'Ya existe una organización con ese dominio' });
   }
 
@@ -374,7 +382,7 @@ app.post('/api/auth/register', async (req, res) => {
     await conexion.beginTransaction();
 
     const organizacionNueva = await crearOrganizacion(
-      { nombre: organizacion, idPlan: planId, dominio, expiracion },
+      { nombre: organizacion, idPlan: planId, dominio: dominioOrganizacion, expiracion },
       conexion
     );
 
