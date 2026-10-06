@@ -62,15 +62,45 @@ de MySQL de arriba.
 
 ```
 db/
-└── init/
-    ├── 01_schema.sql   ← esquema (fuente de verdad del MER)
-    └── 02_seed.sql     ← datos de prueba
+├── init/
+│   ├── 01_schema.sql   ← esquema (fuente de verdad del MER)
+│   └── 02_seed.sql     ← datos de prueba
+├── migrations/         ← cambios de esquema para la base del servidor
+└── migrar.sh           ← aplica las migraciones pendientes (lo corre el deploy)
 ```
 
 Los scripts de `db/init/` **solo se ejecutan cuando el volumen está vacío**.
 Si modificás el esquema, hay que hacer `docker compose down -v` para que se
 vuelvan a aplicar. Editá siempre el `.sql`, nunca la base a mano desde Adminer:
 así todo el equipo trabaja con el mismo esquema.
+
+### Cambios de esquema (migraciones)
+
+En local se recrea la base, pero en el servidor no se pueden perder los datos.
+Por eso **cada cambio de esquema va en dos lugares**:
+
+1. `db/init/01_schema.sql`: el esquema completo, para bases nuevas.
+2. Un archivo nuevo en `db/migrations/` con solo el cambio, para la base del
+   servidor. Nombre: número de 3 dígitos + descripción, por ejemplo
+   `001_agregar_estado_usuarios.sql`. Un cambio por archivo, y nunca editar una
+   migración que ya se subió: si hay que corregirla, se hace otra.
+
+El deploy corre `bash db/migrar.sh` antes de reiniciar el backend. Aplica en
+orden las migraciones que no figuran en la tabla `migraciones` y las registra.
+Si una falla, el deploy se corta y el backend no se reinicia (MySQL no deshace
+los `ALTER` de un archivo a medio aplicar: revisá la base antes de reintentar).
+
+`migrar.sh` lee las credenciales de `~/.my.cnf` (permisos `600`):
+
+```ini
+[client]
+user=biblioteca
+password=...
+```
+
+Si la base del servidor se crea de cero desde `db/init/`, ya trae todos los
+cambios: correr `bash db/migrar.sh --marcar-todas` para registrarlos sin
+aplicarlos de nuevo.
 
 ### Alternativa: MySQL local (sin Docker)
 
