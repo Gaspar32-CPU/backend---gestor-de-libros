@@ -73,6 +73,7 @@ CREATE TABLE usuarios (
     id_organizacion  INT UNSIGNED NULL,
     ci               VARCHAR(20) NULL,
     nombre           VARCHAR(150) NOT NULL,
+    apellido         VARCHAR(150) NULL,
     email            VARCHAR(150) NOT NULL,
     telefono         VARCHAR(30) NOT NULL,
     -- NULL = usuario invitado por un admin que todavía no creó su contraseña

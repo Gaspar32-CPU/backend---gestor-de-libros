@@ -45,6 +45,7 @@ model Usuario {
   id_organizacion    Int?                 @db.UnsignedInt
   ci                 String?              @db.VarChar(20)
   nombre             String               @db.VarChar(150)
+  apellido           String?              @db.VarChar(150)
   email              String               @unique(map: "uq_usuarios_email") @db.VarChar(150)
   telefono           String               @db.VarChar(30)
   contrasena         String?              @db.VarChar(255)
