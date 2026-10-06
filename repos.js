@@ -94,7 +94,11 @@ export async function listarUsuariosPorOrganizacion(idOrganizacion) {
 }
 
 export async function listarUsuarios() {
-  const [filas] = await pool.query('SELECT * FROM usuarios');
+  const [filas] = await pool.query(`
+  SELECT id, id_organizacion, nombre, apellido, ci, email, telefono, rol
+    FROM usuarios
+  `);
+
   return filas.map(usuarioDeDB);
 }
 
