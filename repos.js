@@ -21,6 +21,7 @@ const usuarioDeDB = (fila) => ({
   id: fila.id,
   CI: fila.ci,
   nombre: fila.nombre,
+  apellido: fila.apellido,
   correo: fila.email,
   contrasena: fila.contrasena,
   fecharegistro: fila.fecha_registro,
