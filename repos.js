@@ -22,6 +22,7 @@ const usuarioDeDB = (fila) => ({
   CI: fila.ci,
   nombre: fila.nombre,
   apellido: fila.apellido,
+  nombreCompleto: `${fila.nombre} ${fila.apellido}`,
   correo: fila.email,
   contrasena: fila.contrasena,
   fecharegistro: fila.fecha_registro,
@@ -95,7 +96,7 @@ export async function listarUsuariosPorOrganizacion(idOrganizacion) {
 
 export async function listarUsuarios() {
   const [filas] = await pool.query(`
-  SELECT id, id_organizacion, nombre, apellido, ci, email, telefono, rol
+  SELECT id, id_organizacion, nombre, apellido, ci, email, telefono, rol, CONCAT(nombre, ' ', apellido) as nombreCompleto
     FROM usuarios
   `);
 
