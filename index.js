@@ -676,7 +676,10 @@ app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
       `SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.isbn, l.fecha_pub,
               l.resumen, l.portada, l.stock,
               l.stock - COALESCE(p.activos, 0) AS disponibles,
-              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
+              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
+              EXISTS (SELECT 1 FROM prestamos mp
+                      WHERE mp.id_libro = l.id AND mp.id_usuario = ?
+                        AND mp.estado IN ('pendiente_retiro','activo','atrasado')) AS ya_lo_tiene
        FROM libros l
        LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
                   WHERE estado IN ('pendiente_retiro','activo','atrasado')
@@ -684,14 +687,14 @@ app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
        LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
                   GROUP BY id_libro) r ON r.id_libro = l.id
        WHERE l.id = ? AND l.id_organizacion = ?`,
-      [req.params.id, req.usuario.organizacionId]
+      [req.usuario.id, req.params.id, req.usuario.organizacionId]
     );
 
     if (!libro) {
       return res.status(404).json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' });
     }
 
-    res.json(libro);
+    res.json({ ...libro, ya_lo_tiene: Boolean(libro.ya_lo_tiene) });
   } catch (err) {
     next(err);
   }
@@ -812,7 +815,21 @@ app.patch('/api/prestamos/mis-prestamos/:id/extender', verificarToken, sinImplem
 // POST /api/prestamos - Crear un nuevo préstamo (cualquier usuario autenticado)
 app.post('/api/prestamos', verificarToken, async (req, res, next) => {
   try {
-    const { libroId, usuarioId } = req.body;
+    const { libroId } = req.body;
+    // El usuario sale del token, no del body: si no, cualquiera podría
+    // pedir préstamos a nombre de otro.
+    const usuarioId = req.usuario.id;
+
+    const [[existente]] = await pool.query(
+      `SELECT 1 FROM prestamos
+       WHERE id_libro = ? AND id_usuario = ?
+         AND estado IN ('pendiente_retiro','activo','atrasado')
+       LIMIT 1`,
+      [libroId, usuarioId]
+    );
+    if (existente) {
+      return res.status(409).json({ error: 'ya_prestado', mensaje: 'Ya tenés este libro pedido' });
+    }
 
     // El plazo y el lugar de retiro son configurables por organización
     // (tabla configuraciones), por eso no se reciben del cliente: se buscan acá.
