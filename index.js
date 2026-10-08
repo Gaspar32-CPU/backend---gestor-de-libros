@@ -28,7 +28,8 @@ import {
 } from './repos.js';
 
 import isbnRoutes from './routes/isbn.routes.js';
-import { notificarNuevoPrestamo, notificarInvitacion } from './services/notificaciones.js';
+import { notificarNuevoPrestamo, notificarInvitacion, notificarInicioSesion, notificarRegistro } from './services/notificaciones.js';
+import { generarTokenCrearContrasena, verificarTokenCrearContrasena } from './services/token.js';
 
 const app = express();
 const PUERTO = process.env.PORT || 3001;
@@ -294,10 +295,14 @@ app.delete('/api/organizaciones/:id/configuracion', verificarToken, verificarAdm
    USUARIOS
    ============================================================ */
 
-// POST /api/usuarios - Crear un nuevo usuario (público, con mail de dominio asociado)
+// POST /api/auth/register - Registrarse (público, con mail de dominio asociado)
 // Si vienen "organizacion" y "dominio", este registro no es un lector
 // sumándose a una organización existente: es el alta de una organización
 // nueva, y quien se registra queda como su admin_organizacion.
+//
+// En ningún caso se pide contraseña acá: la cuenta se crea sin contraseña
+// y se manda un email con el link para crearla (POST /auth/crear-contrasena).
+// Abrir ese link es lo que valida que el correo es de quien se registró.
 app.post('/api/auth/register', async (req, res) => {
   const {
     nombre,
@@ -305,20 +310,14 @@ app.post('/api/auth/register', async (req, res) => {
     cedula,
     correo,
     telefono,
-    contrasena,
-    confirmarContrasena,
     organizacion,
     dominio,
     planId,
     ciclo,
   } = req.body ?? {};
 
-  if (!nombre || !apellido || !cedula || !correo || !telefono || !contrasena || !confirmarContrasena) {
+  if (!nombre || !apellido || !cedula || !correo || !telefono) {
     return res.status(400).json({ error: 'Todos los campos son obligatorios' });
-  }
-
-  if (contrasena !== confirmarContrasena) {
-    return res.status(400).json({ error: 'Las contraseñas no coinciden' });
   }
 
   if (await buscarUsuarioPorCorreo(correo)) {
@@ -337,69 +336,94 @@ app.post('/api/auth/register', async (req, res) => {
   const dominioOrganizacion = creaOrganizacionNueva
     ? `@${dominio.trim().replace(/^@+/, '')}`
     : null;
-  const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
 
+  // contrasena: null = todavía no la creó
   const datosUsuario = {
     nombre,
     ci: cedula,
     correo,
     telefono,
-    contrasena: contrasenaHasheada,
+    contrasena: null,
   };
 
+  // Primero se validan los datos de cada caso; recién después se escribe
+  // en la base, todo junto dentro de una transacción.
+  let organizacionExistente;
+  let expiracion;
+
   if (!creaOrganizacionNueva) {
-    const organizacionExistente = await buscarOrganizacionPorDominio(dominioConArroba);
+    organizacionExistente = await buscarOrganizacionPorDominio(dominioConArroba);
 
     if (!organizacionExistente) {
       return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
     }
+  } else {
+    if (!planId) {
+      return res.status(400).json({ error: 'Falta el plan seleccionado' });
+    }
 
-    await crearUsuario({ ...datosUsuario, organizacionId: organizacionExistente.id, rol: 'lector' });
-    return res.status(200).json({ message: 'Usuario creado' });
+    if (!(await buscarPlanPorId(planId))) {
+      return res.status(400).json({ code: 'PLAN_INEXISTENTE', message: 'El plan seleccionado no existe' });
+    }
+
+    if (await buscarOrganizacionPorDominio(dominioOrganizacion)) {
+      return res.status(409).json({ code: 'DOMINIO_YA_REGISTRADO', message: 'Ya existe una organización con ese dominio' });
+    }
+
+    const mesesSuscripcion = ciclo === 'anual' ? 12 : 1;
+    expiracion = new Date();
+    expiracion.setMonth(expiracion.getMonth() + mesesSuscripcion);
   }
 
-  if (!planId) {
-    return res.status(400).json({ error: 'Falta el plan seleccionado' });
-  }
-
-  if (!(await buscarPlanPorId(planId))) {
-    return res.status(400).json({ code: 'PLAN_INEXISTENTE', message: 'El plan seleccionado no existe' });
-  }
-
-  if (await buscarOrganizacionPorDominio(dominioOrganizacion)) {
-    return res.status(409).json({ code: 'DOMINIO_YA_REGISTRADO', message: 'Ya existe una organización con ese dominio' });
-  }
-
-  const mesesSuscripcion = ciclo === 'anual' ? 12 : 1;
-  const expiracion = new Date();
-  expiracion.setMonth(expiracion.getMonth() + mesesSuscripcion);
-
-  // Organización y admin van juntos: si falla el usuario (ej: CI repetida),
-  // el rollback borra la organización. Si no, quedaría una organización sin
-  // admin y el próximo intento rebotaría con DOMINIO_YA_REGISTRADO.
+  // Organización, usuario y email van juntos en una transacción:
+  // - si falla el usuario (ej: CI repetida), el rollback borra la
+  //   organización; si no, quedaría una organización sin admin y el próximo
+  //   intento rebotaría con DOMINIO_YA_REGISTRADO.
+  // - el email se manda ANTES del commit: si no sale, el rollback deshace
+  //   el alta. Si no, quedaría una cuenta sin contraseña y sin link para
+  //   crearla, y volver a registrarse rebotaría con CORREO_YA_REGISTRADO.
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
 
-    const organizacionNueva = await crearOrganizacion(
-      { nombre: organizacion, idPlan: planId, dominio: dominioOrganizacion, expiracion },
+    let organizacionId;
+    if (creaOrganizacionNueva) {
+      const organizacionNueva = await crearOrganizacion(
+        { nombre: organizacion, idPlan: planId, dominio: dominioOrganizacion, expiracion },
+        conexion
+      );
+      organizacionId = organizacionNueva.id;
+    } else {
+      organizacionId = organizacionExistente.id;
+    }
+
+    const usuarioNuevo = await crearUsuario(
+      { ...datosUsuario, organizacionId, rol: creaOrganizacionNueva ? 'admin_organizacion' : 'lector' },
       conexion
     );
 
-    await crearUsuario(
-      { ...datosUsuario, organizacionId: organizacionNueva.id, rol: 'admin_organizacion' },
-      conexion
-    );
+    await notificarRegistro({
+      nombre,
+      correo,
+      tokenCrearContrasena: generarTokenCrearContrasena(usuarioNuevo.id),
+    });
 
     await conexion.commit();
   } catch (err) {
     await conexion.rollback();
+
+    if (err.code === 'EMAIL_NO_ENVIADO') {
+      return res.status(502).json({
+        code: 'EMAIL_NO_ENVIADO',
+        message: 'No pudimos enviarte el email para validar tu correo. Probá registrarte de nuevo en unos minutos.',
+      });
+    }
     throw err;
   } finally {
     conexion.release();
   }
 
-  res.status(200).json({ message: 'Usuario creado' });
+  res.status(200).json({ message: 'Te enviamos un email para validar tu correo y crear tu contraseña' });
 });
 
 // POST /api/usuarios - Invitar un usuario a mi organización (admin)
@@ -433,11 +457,7 @@ app.post('/api/usuarios', verificarToken, verificarAdmin, async (req, res, next)
       rol: 'lector',
     });
 
-    const tokenInvitacion = jwt.sign(
-      { id: usuarioInvitado.id, proposito: 'crear_contrasena' },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const tokenInvitacion = generarTokenCrearContrasena(usuarioInvitado.id, '7d');
 
     await notificarInvitacion({ nombre, correo, tokenInvitacion });
 
@@ -497,12 +517,12 @@ app.post('/api/auth/login', async (req, res) => {
   if (!usuarioElegido) {
   return res.status(401).json({ code: 'CREDENCIALES_INVALIDAS', message: 'Credenciales incorrectas' });  }
 
-  // Cuenta invitada por un admin que todavía no pasó por
+  // Cuenta (registrada o invitada por un admin) que todavía no pasó por
   // /auth/crear-contrasena: no hay hash contra el cual comparar.
   if (!usuarioElegido.contrasena) {
     return res.status(401).json({
       code: 'CUENTA_SIN_CONTRASENA',
-      message: 'Todavía no creaste tu contraseña. Revisá el email de invitación.',
+      message: 'Talz vez aún no hayas creado tu contraseña. Revisá el email que te enviamos.',
     });
   }
 
@@ -537,10 +557,11 @@ app.post('/api/auth/logout', (req, res) => {
 // POST /api/auth/recuperar - Recuperar contraseña
 app.post('/api/auth/recuperar', sinImplementar);
 
-// POST /api/auth/crear-contrasena - Primera contraseña de una cuenta invitada
-// El token viene del link que se manda por email en POST /api/usuarios (ver
-// notificarInvitacion). No requiere sesión: quien invitaron todavía no tiene
-// contraseña, así que no puede loguearse para obtener un JWT normal.
+// POST /api/auth/crear-contrasena - Primera contraseña de una cuenta
+// El token viene del link que se manda por email al registrarse (POST
+// /api/auth/register, ver notificarRegistro) o al ser invitado por un admin
+// (POST /api/usuarios, ver notificarInvitacion). No requiere sesión: la
+// persona todavía no tiene contraseña, así que no puede loguearse.
 app.post('/api/auth/crear-contrasena', async (req, res, next) => {
   const { token, contrasena, confirmarContrasena } = req.body ?? {};
 
@@ -552,19 +573,14 @@ app.post('/api/auth/crear-contrasena', async (req, res, next) => {
     return res.status(400).json({ error: 'Las contraseñas no coinciden' });
   }
 
-  let payload;
-  try {
-    payload = jwt.verify(token, process.env.JWT_SECRET);
-  } catch {
+  // null si el token está vencido, mal firmado o es de otro propósito.
+  const idUsuario = verificarTokenCrearContrasena(token);
+  if (!idUsuario) {
     return res.status(401).json({ error: 'El link es inválido o ya venció' });
   }
 
-  if (payload.proposito !== 'crear_contrasena') {
-    return res.status(400).json({ error: 'Este link no es para crear una contraseña' });
-  }
-
   try {
-    const [[usuario]] = await pool.query('SELECT contrasena FROM usuarios WHERE id = ?', [payload.id]);
+    const [[usuario]] = await pool.query('SELECT contrasena FROM usuarios WHERE id = ?', [idUsuario]);
 
     if (!usuario) {
       return res.status(404).json({ error: 'La cuenta ya no existe' });
@@ -576,8 +592,13 @@ app.post('/api/auth/crear-contrasena', async (req, res, next) => {
       return res.status(409).json({ error: 'Esta cuenta ya tiene una contraseña. Iniciá sesión normalmente.' });
     }
 
+    // Si llegó hasta acá abrió el link del email, así que el correo es suyo:
+    // se marca como validado en el mismo UPDATE que guarda la contraseña.
     const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
-    await pool.query('UPDATE usuarios SET contrasena = ? WHERE id = ?', [contrasenaHasheada, payload.id]);
+    await pool.query(
+      'UPDATE usuarios SET contrasena = ?, email_verificado_en = NOW() WHERE id = ?',
+      [contrasenaHasheada, idUsuario]
+    );
 
     res.status(200).json({ mensaje: 'Contraseña creada' });
   } catch (err) {
