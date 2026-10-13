@@ -522,7 +522,7 @@ app.post('/api/auth/login', async (req, res) => {
   if (!usuarioElegido.contrasena) {
     return res.status(401).json({
       code: 'CUENTA_SIN_CONTRASENA',
-      message: 'Talz vez aún no hayas creado tu contraseña. Revisá el email que te enviamos.',
+      message: 'Tal vez aún no hayas creado tu contraseña. Revisá el email que te enviamos.',
     });
   }
 
