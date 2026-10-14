@@ -369,6 +369,17 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
     }
   } else if (!usuarioPendiente) {
+    // Quien da de alta la organización tiene que tener un correo de ese
+    // dominio: como el link de validación llega a su correo, eso prueba que
+    // pertenece a la institución. Si no, cualquiera podría reclamar el
+    // dominio de otra institución con un mail propio.
+    if (dominioConArroba.toLowerCase() !== dominioOrganizacion.toLowerCase()) {
+      return res.status(400).json({
+        code: 'CORREO_FUERA_DEL_DOMINIO',
+        message: `Para registrar la organización tenés que usar un correo que termine en ${dominioOrganizacion}`,
+      });
+    }
+
     if (!planId) {
       return res.status(400).json({ error: 'Falta el plan seleccionado' });
     }
