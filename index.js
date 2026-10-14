@@ -16,6 +16,7 @@ import {
   listarUsuarios,
   listarUsuariosPorOrganizacion,
   crearUsuario,
+  actualizarUsuarioPendiente,
   buscarOrganizacionPorId,
   buscarOrganizacionPorDominio,
   crearOrganizacion,
@@ -320,9 +321,17 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ error: 'Todos los campos son obligatorios' });
   }
 
-  if (await buscarUsuarioPorCorreo(correo)) {
+  // Solo rebota si la cuenta ya está activada (creó su contraseña). Si
+  // existe pero sigue pendiente, puede ser que alguien haya registrado este
+  // correo sin ser su dueño (el link le llegó al dueño, no a quien lo
+  // registró) o que el link original se haya perdido o vencido. En ese caso
+  // no se bloquea al dueño real: se pisan los datos personales y se manda un
+  // link nuevo, más abajo.
+  const usuarioExistente = await buscarUsuarioPorCorreo(correo);
+  if (usuarioExistente && usuarioExistente.contrasena !== null) {
     return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
   }
+  const usuarioPendiente = usuarioExistente;
 
   // Los dominios se guardan y se buscan siempre con "@" adelante
   // ("@anima.edu.uy"), así el registro de lectores y el alta de
@@ -348,16 +357,18 @@ app.post('/api/auth/register', async (req, res) => {
 
   // Primero se validan los datos de cada caso; recién después se escribe
   // en la base, todo junto dentro de una transacción.
+  // Si la cuenta está pendiente ya tiene organización y rol, así que no se
+  // valida nada de eso: solo se le actualizan los datos personales.
   let organizacionExistente;
   let expiracion;
 
-  if (!creaOrganizacionNueva) {
+  if (!usuarioPendiente && !creaOrganizacionNueva) {
     organizacionExistente = await buscarOrganizacionPorDominio(dominioConArroba);
 
     if (!organizacionExistente) {
       return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
     }
-  } else {
+  } else if (!usuarioPendiente) {
     if (!planId) {
       return res.status(400).json({ error: 'Falta el plan seleccionado' });
     }
@@ -386,26 +397,36 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     await conexion.beginTransaction();
 
-    let organizacionId;
-    if (creaOrganizacionNueva) {
-      const organizacionNueva = await crearOrganizacion(
-        { nombre: organizacion, idPlan: planId, dominio: dominioOrganizacion, expiracion },
+    let idUsuario;
+    if (usuarioPendiente) {
+      await actualizarUsuarioPendiente(
+        { id: usuarioPendiente.id, nombre, ci: cedula, telefono },
         conexion
       );
-      organizacionId = organizacionNueva.id;
+      idUsuario = usuarioPendiente.id;
     } else {
-      organizacionId = organizacionExistente.id;
-    }
+      let organizacionId;
+      if (creaOrganizacionNueva) {
+        const organizacionNueva = await crearOrganizacion(
+          { nombre: organizacion, idPlan: planId, dominio: dominioOrganizacion, expiracion },
+          conexion
+        );
+        organizacionId = organizacionNueva.id;
+      } else {
+        organizacionId = organizacionExistente.id;
+      }
 
-    const usuarioNuevo = await crearUsuario(
-      { ...datosUsuario, organizacionId, rol: creaOrganizacionNueva ? 'admin_organizacion' : 'lector' },
-      conexion
-    );
+      const usuarioNuevo = await crearUsuario(
+        { ...datosUsuario, organizacionId, rol: creaOrganizacionNueva ? 'admin_organizacion' : 'lector' },
+        conexion
+      );
+      idUsuario = usuarioNuevo.id;
+    }
 
     await notificarRegistro({
       nombre,
       correo,
-      tokenCrearContrasena: generarTokenCrearContrasena(usuarioNuevo.id),
+      tokenCrearContrasena: generarTokenCrearContrasena(idUsuario),
     });
 
     await conexion.commit();

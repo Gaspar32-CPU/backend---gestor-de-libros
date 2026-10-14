@@ -128,6 +128,18 @@ export async function crearUsuario(
   });
 }
 
+// Pisa los datos personales de una cuenta que todavía no creó su
+// contraseña (ver POST /api/auth/register). El "contrasena IS NULL" del
+// WHERE asegura que nunca se toque una cuenta ya activada. No cambia ni la
+// organización ni el rol.
+export async function actualizarUsuarioPendiente({ id, nombre, ci, telefono }, conexion = pool) {
+  await conexion.query(
+    `UPDATE usuarios SET nombre = ?, ci = ?, telefono = ?
+     WHERE id = ? AND contrasena IS NULL`,
+    [nombre, ci, telefono, id]
+  );
+}
+
 /* ============================================================
    ORGANIZACIONES
    ============================================================ */
