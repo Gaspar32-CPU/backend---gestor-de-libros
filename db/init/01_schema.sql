@@ -75,6 +75,7 @@ CREATE TABLE usuarios (
     nombre           VARCHAR(150) NOT NULL,
     apellido         VARCHAR(150) NULL,
     email            VARCHAR(150) NOT NULL,
+    email_verificado_en  DATETIME NULL,
     telefono         VARCHAR(30) NOT NULL,
     -- NULL = usuario invitado por un admin que todavía no creó su contraseña
     -- (ver POST /api/usuarios y POST /api/auth/crear-contrasena en index.js).
@@ -202,6 +203,11 @@ CREATE TABLE notificaciones (
     mensaje       TEXT NOT NULL,
     leida         TINYINT(1) NOT NULL DEFAULT 0,
     fecha_envio   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Estado real del envío (ver migración 002): 'pendiente' al insertar,
+    -- 'enviado' (con enviado_en) o 'error' (con el mensaje) cuando termina.
+    estado        ENUM('pendiente','enviado','error') NOT NULL DEFAULT 'pendiente',
+    enviado_en    DATETIME NULL,
+    error         TEXT NULL,
     PRIMARY KEY (id),
     KEY idx_notif_usuario_leida (id_usuario, leida),
     KEY idx_notif_prestamo (id_prestamo),
@@ -232,4 +238,16 @@ CREATE TABLE reportes_problemas (
         REFERENCES organizaciones(id) ON DELETE CASCADE,
     CONSTRAINT fk_reportes_libro FOREIGN KEY (id_libro)
         REFERENCES libros(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE envios_email (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    correo      VARCHAR(150) NOT NULL,
+    tipo        ENUM('registro','invitacion') NOT NULL,
+    estado      ENUM('enviado','error') NOT NULL,
+    error       TEXT NULL,
+    fecha       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_envios_correo (correo),
+    KEY idx_envios_tipo_fecha (tipo, fecha)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
