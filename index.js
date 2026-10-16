@@ -28,7 +28,7 @@ import {
 } from './repos.js';
 
 import isbnRoutes from './routes/isbn.routes.js';
-import { notificarNuevoPrestamo, notificarInvitacion, notificarInicioSesion, notificarRegistro } from './services/notificaciones.js';
+import { notificarNuevoPrestamo, notificarInvitacion, notificarRegistro, notificarExtensionPrestamo } from './services/notificaciones.js';
 import { generarTokenCrearContrasena, verificarTokenCrearContrasena } from './services/token.js';
 
 const app = express();
@@ -891,13 +891,73 @@ app.get('/api/prestamos', verificarToken, verificarAdmin, sinImplementar);
 app.get('/api/prestamos/:id', verificarToken, verificarAdmin, sinImplementar);
 
 // PATCH /api/prestamos/:id/devolver - Marcar préstamo como devuelto (admin)
-app.patch('/api/prestamos/:id/devolver', verificarToken, verificarAdmin, sinImplementar);
+app.patch('/api/prestamos/:id/devolver', verificarToken, verificarAdmin, async (req, res, next) => {
+  try {
+
+    const prestamoId = req.params.id;
+    const organizacionId = req.usuario.organizacionId;
+    let nuevoEstado = 'devuelto';
+
+    const [[prestamo]] = await pool.query(
+      `SELECT id, estado, id_organizacion FROM prestamos
+       WHERE id = ? AND id_organizacion = ?`,
+      [prestamoId, organizacionId]
+    );
+
+    if (!prestamo) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Préstamo no encontrado' });
+    }
+
+    if (!['activo', 'atrasado', 'pendiente_retiro'].includes(prestamo.estado)) {
+      return res.status(409).json({ error: 'no_disponible', mensaje: 'El préstamo no está disponible' });
+    }
+
+    if (prestamo.estado === 'pendiente_retiro') {
+      nuevoEstado = 'cancelado';
+
+      await pool.query(
+        'UPDATE prestamos SET estado = ? WHERE id = ? AND id_organizacion = ?',
+        [nuevoEstado, prestamo.id, organizacionId]
+      );
+      return res.json({ id: prestamo.id, estado: 'cancelado' });
+    }
+    await pool.query(
+      'UPDATE prestamos SET estado = ?, fecha_devolucion_real = NOW() WHERE id = ? AND id_organizacion = ?',
+      [nuevoEstado, prestamo.id, organizacionId]
+    );
+
+    const [[prestamoActualizado]] = await pool.query(
+      `SELECT p.id, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+              p.extensiones_realizadas, p.lugar_retiro, p.estado,
+              l.titulo, l.autor, l.portada
+      FROM prestamos p
+      JOIN libros l ON l.id = p.id_libro
+      WHERE p.id = ? AND p.id_organizacion = ?`,
+      [prestamoId, organizacionId]
+    );
+
+    if (!prestamoActualizado) {
+      return res.status(404).json({ error: 'Préstamo no encontrado' });
+    }
+
+    await notificarExtensionPrestamo({
+      idPrestamo: prestamoActualizado.id,
+      idLibro: prestamoActualizado.id_libro,
+      idUsuario: prestamoActualizado.id_usuario,
+      idOrganizacion: organizacionId,
+    });
+
+    res.json({ id: prestamoActualizado.id, estado: prestamoActualizado.estado });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // DELETE /api/prestamos/:id - Eliminar un préstamo (admin)
-app.delete('/api/prestamos/:id', verificarToken, verificarAdmin, sinImplementar);
+app.delete('/api/prestamos/:id', verificarToken, verificarAdmin, );
 
 /* ============================================================
-   MANEJO DE ERRORES
+   MANEJO DE ERRORES  
    Van al final: Express los evalúa en orden y estos son la red
    que atrapa todo lo que no matcheó antes.
    ============================================================ */
