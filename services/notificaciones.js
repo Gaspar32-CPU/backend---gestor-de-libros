@@ -9,96 +9,180 @@ import { enviarEmail } from './email.js';
 import { escaparHtml } from './escaparHtml.js';
 import { plantillaEmail } from './plantillaEmail.js';
 
+// ---------------------------------------------------------------------------
+// Piezas reutilizables para los avisos de préstamos (nuevo, devuelto,
+// vencido...). Cada aviso concreto solo decide los textos y a quién va.
+// ---------------------------------------------------------------------------
+
+/**
+ * Trae lo que casi todo aviso de préstamo necesita: el título del libro,
+ * el usuario que lo pidió y los admins de la organización.
+ */
+async function obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganizacion }) {
+  const [
+    [[libro]],
+    [[usuario]],
+    [admins],
+    [[prestamo]]
+  ] = await Promise.all([
+    pool.query('SELECT titulo FROM libros WHERE id = ?', [idLibro]),
+    pool.query('SELECT nombre, email FROM usuarios WHERE id = ?', [idUsuario]),
+    pool.query("SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion'", [idOrganizacion]),
+    pool.query("SELECT id, nombre, fecha_devolucion_esperada, extensiones_realizadas FROM prestamos WHERE id = ? AND id_organizacion = ?", [idPrestamo, idOrganizacion])
+  ]);
+
+  return {
+    tituloLibro: libro?.titulo ?? 'un libro',
+    usuario,
+    admins,
+    prestamo,
+  };
+}
+
+/**
+ * Guarda la notificación en la tabla (estado 'pendiente') y devuelve el
+ * envío listo para pasarle a procesarEnvios.
+ */
+async function crearEnvio({ idUsuario, idPrestamo, tipo, mensaje, para, asunto, titulo }) {
+  const [resultado] = await pool.query(
+    `INSERT INTO notificaciones (id_usuario, id_prestamo, tipo, canal, mensaje, estado)
+     VALUES (?, ?, ?, 'email', ?, 'pendiente')`,
+    [idUsuario, idPrestamo, tipo, mensaje]
+  );
+
+  return {
+    idNotificacion: resultado.insertId,
+    para,
+    asunto,
+    html: plantillaEmail({ titulo, cuerpo: escaparHtml(mensaje) }),
+  };
+}
+
+/**
+ * Manda todos los emails en paralelo y, cuando termina cada uno, deja
+ * asentado en su fila si salió o no.
+ */
+async function procesarEnvios(envios) {
+  const resultados = await Promise.allSettled(
+    envios.map((envio) => enviarEmail({ para: envio.para, asunto: envio.asunto, html: envio.html }))
+  );
+
+  await Promise.all(
+    resultados.map((resultado, i) => {
+      const { idNotificacion } = envios[i];
+
+      if (resultado.status === 'fulfilled' && resultado.value.ok) {
+        return pool.query(
+          "UPDATE notificaciones SET estado = 'enviado', enviado_en = NOW() WHERE id = ?",
+          [idNotificacion]
+        );
+      }
+
+      // enviarEmail no debería rechazar nunca (devuelve { ok: false }),
+      // pero por las dudas también se cubre el caso 'rejected'.
+      const mensajeError =
+        resultado.status === 'fulfilled' ? resultado.value.error : String(resultado.reason?.message ?? resultado.reason);
+      return pool.query(
+        "UPDATE notificaciones SET estado = 'error', error = ? WHERE id = ?",
+        [mensajeError, idNotificacion]
+      );
+    })
+  );
+}
+
+/**
+ * Dispara procesarEnvios sin esperarlo: si Brevo tarda, no tiene que
+ * demorar la respuesta del endpoint. El "void" deja claro que es a
+ * propósito, y el .catch hace que ningún error quede sin manejar.
+ */
+function procesarEnviosEnSegundoPlano(envios, idPrestamo) {
+  void procesarEnvios(envios).catch((err) => {
+    console.error('[notificaciones] error al procesar los envíos del préstamo', idPrestamo, '->', err);
+  });
+}
+
 /**
  * Se dispara al crear un préstamo: avisa a los admins de la organización
  * de que un usuario pidió un libro, para que lo tengan pendiente de entrega.
  */
-export async function notificarNuevoPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
-  const [
-    [[libro]],
-    [[usuario]],
-    [admins]
-  ] = await Promise.all([
-    pool.query('SELECT titulo FROM libros WHERE id = ?', [idLibro]),
-    pool.query('SELECT nombre, email FROM usuarios WHERE id = ?', [idUsuario]),
-    pool.query("SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion'", [idOrganizacion])
-  ]);
+export async function notificarExtensionPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
+  const { tituloLibro, usuario, admins, prestamo } = await obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganizacion });
 
-  const tituloLibro = libro?.titulo ?? 'un libro';
-  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó el préstamo de "${tituloLibro}".`;
-  const mensajeParaSolicitante = `Registramos tu solicitud de préstamo de "${tituloLibro}". Te avisamos por acá cuando esté listo para retirar.`;
+  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó la extensión del préstamo de "${tituloLibro}" y la fecha de retiro es el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible'}.`;
+  const mensajeParaSolicitante = `Registramos tu solicitud de extensión del préstamo de "${tituloLibro}". Se extendió hasta el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible consulta con el administrador de tu institución'}.`;
 
   const envios = [];
 
   for (const admin of admins) {
-    const [resultado] = await pool.query(
-      `INSERT INTO notificaciones (id_usuario, id_prestamo, tipo, canal, mensaje, estado)
-       VALUES (?, ?, 'nuevo_prestamo', 'email', ?, 'pendiente')`,
-      [admin.id, idPrestamo, mensajeParaAdmin]
-    );
-
-    envios.push({
-      idNotificacion: resultado.insertId,
+    envios.push(await crearEnvio({
+      idUsuario: admin.id,
+      idPrestamo,
+      tipo: 'extension_prestamo',
+      mensaje: mensajeParaAdmin,
       para: admin.email,
-      asunto: 'Nuevo préstamo solicitado',
-      html: plantillaEmail({ titulo: 'Nuevo préstamo solicitado', cuerpo: escaparHtml(mensajeParaAdmin) }),
-    });
+      asunto: 'Extensión de préstamo',
+      titulo: 'Extensión de préstamo',
+    }));
   }
 
   // El solicitante también es parte del RF de notificaciones ("al generar
   // un préstamo"): además del aviso al admin para que prepare el libro,
   // el usuario recibe la confirmación de que su pedido quedó registrado.
   if (usuario?.email) {
-    const [resultado] = await pool.query(
-      `INSERT INTO notificaciones (id_usuario, id_prestamo, tipo, canal, mensaje, estado)
-       VALUES (?, ?, 'nuevo_prestamo', 'email', ?, 'pendiente')`,
-      [idUsuario, idPrestamo, mensajeParaSolicitante]
-    );
+    envios.push(await crearEnvio({
+      idUsuario,
+      idPrestamo,
+      tipo: 'extension_prestamo',
+      mensaje: mensajeParaSolicitante,
+      para: usuario.email,
+      asunto: 'Extensión de préstamo',
+      titulo: 'Extensión de préstamo',
+    }));
+  }
 
-    envios.push({
-      idNotificacion: resultado.insertId,
+  procesarEnviosEnSegundoPlano(envios, idPrestamo);
+}
+
+/**
+ * Se dispara al crear un préstamo: avisa a los admins de la organización
+ * de que un usuario pidió un libro, para que lo tengan pendiente de entrega.
+ */
+export async function notificarNuevoPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
+  const { tituloLibro, usuario, admins } = await obtenerDatosPrestamo({ idLibro, idUsuario, idOrganizacion });
+
+  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó el préstamo de "${tituloLibro}".`;
+  const mensajeParaSolicitante = `Registramos tu solicitud de préstamo de "${tituloLibro}". Te avisamos por acá cuando esté listo para retirar.`;
+
+  const envios = [];
+
+  for (const admin of admins) {
+    envios.push(await crearEnvio({
+      idUsuario: admin.id,
+      idPrestamo,
+      tipo: 'nuevo_prestamo',
+      mensaje: mensajeParaAdmin,
+      para: admin.email,
+      asunto: 'Nuevo préstamo solicitado',
+      titulo: 'Nuevo préstamo solicitado',
+    }));
+  }
+
+  // El solicitante también es parte del RF de notificaciones ("al generar
+  // un préstamo"): además del aviso al admin para que prepare el libro,
+  // el usuario recibe la confirmación de que su pedido quedó registrado.
+  if (usuario?.email) {
+    envios.push(await crearEnvio({
+      idUsuario,
+      idPrestamo,
+      tipo: 'nuevo_prestamo',
+      mensaje: mensajeParaSolicitante,
       para: usuario.email,
       asunto: 'Confirmamos tu solicitud de préstamo',
-      html: plantillaEmail({ titulo: 'Confirmamos tu solicitud', cuerpo: escaparHtml(mensajeParaSolicitante) }),
-    });
+      titulo: 'Confirmamos tu solicitud',
+    }));
   }
 
-  // Manda todos los emails en paralelo y, cuando termina cada uno, deja
-  // asentado en su fila si salió o no.
-  async function procesarEnvios() {
-    const resultados = await Promise.allSettled(
-      envios.map((envio) => enviarEmail({ para: envio.para, asunto: envio.asunto, html: envio.html }))
-    );
-
-    await Promise.all(
-      resultados.map((resultado, i) => {
-        const { idNotificacion } = envios[i];
-
-        if (resultado.status === 'fulfilled' && resultado.value.ok) {
-          return pool.query(
-            "UPDATE notificaciones SET estado = 'enviado', enviado_en = NOW() WHERE id = ?",
-            [idNotificacion]
-          );
-        }
-
-        // enviarEmail no debería rechazar nunca (devuelve { ok: false }),
-        // pero por las dudas también se cubre el caso 'rejected'.
-        const mensajeError =
-          resultado.status === 'fulfilled' ? resultado.value.error : String(resultado.reason?.message ?? resultado.reason);
-        return pool.query(
-          "UPDATE notificaciones SET estado = 'error', error = ? WHERE id = ?",
-          [mensajeError, idNotificacion]
-        );
-      })
-    );
-  }
-
-  // No se espera el envío: si Brevo tarda, no tiene que demorar la
-  // respuesta de POST /api/prestamos. El "void" deja claro que es a
-  // propósito, y el .catch hace que ningún error quede sin manejar.
-  void procesarEnvios().catch((err) => {
-    console.error('[notificaciones] error al procesar los envíos del préstamo', idPrestamo, '->', err);
-  });
+  procesarEnviosEnSegundoPlano(envios, idPrestamo);
 }
 
 /**
