@@ -1144,7 +1144,7 @@ app.patch('/api/prestamos/:id/devolver', verificarToken, async (req, res, next) 
       if (!prestamoActualizado) {
         return res.status(404).json({ error: 'Préstamo no encontrado' });
       }
-      res.json(prestamoActualizado);
+      return res.json(prestamoActualizado);
     }
     await pool.query(
       `UPDATE prestamos SET estado = ?, fecha_devolucion_real = NOW() WHERE id = ? AND id_organizacion = ? AND estado IN ('activo','atrasado','pendiente_retiro') `,
