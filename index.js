@@ -28,7 +28,7 @@ import {
 } from './repos.js';
 
 import isbnRoutes from './routes/isbn.routes.js';
-import { notificarNuevoPrestamo, notificarInvitacion, notificarInicioSesion, notificarRegistro } from './services/notificaciones.js';
+import { notificarNuevoPrestamo, notificarInvitacion, notificarRegistro, notificarExtensionPrestamo, notificarDevolucionPrestamo } from './services/notificaciones.js';
 import { generarTokenCrearContrasena, verificarTokenCrearContrasena } from './services/token.js';
 
 const app = express();
@@ -805,16 +805,30 @@ app.delete('/api/libros/:id', verificarToken, verificarAdmin, async (req, res, n
 //     admite ?estado=atrasado (u otro valor del ENUM) para filtrar
 app.get('/api/prestamos/mis-prestamos', verificarToken, async (req, res, next) => {
   try {
+    const esAdmin = 'admin' === req.usuario.rol;
+    const esSuperAdmin = 'super-admin' === req.usuario.rol;
+    
     const { estado } = req.query;
 
     let sql = `
       SELECT p.id, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
-             p.extensiones_realizadas, p.lugar_retiro, p.estado,
-             l.titulo, l.autor, l.portada
+            p.extensiones_realizadas, p.lugar_retiro, p.estado,
+            l.titulo, l.autor, l.portada, c.max_extensiones
       FROM prestamos p
       JOIN libros l ON l.id = p.id_libro
-      WHERE p.id_usuario = ? AND p.id_organizacion = ?`;
-    const params = [req.usuario.id, req.usuario.organizacionId];
+      LEFT JOIN configuraciones c ON c.id_organizacion = p.id_organizacion
+      WHERE 1 = 1`;
+    const params = [];
+
+    if (!esSuperAdmin) {
+      sql += ' AND p.id_organizacion = ?';
+      params.push(req.usuario.organizacionId);
+    }
+
+    if (!esAdmin && !esSuperAdmin) {
+      sql += ' AND p.id_usuario = ?';
+      params.push(req.usuario.id);
+    }
 
     if (estado) {
       sql += ' AND p.estado = ?';
@@ -830,8 +844,205 @@ app.get('/api/prestamos/mis-prestamos', verificarToken, async (req, res, next) =
   }
 });
 
+app.patch('/api/prestamos/:id/retirado', verificarToken, verificarAdmin, async (req, res, next) => {
+  try {
+    const prestamoId = req.params.id;
+    const organizacionId = req.usuario.organizacionId;
+    const inicioDelDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const atrasado = (fechaEsperada,  hoy= new Date()) => inicioDelDia(fechaEsperada) < inicioDelDia(hoy);
+
+    const [[prestamo]] = await pool.query(
+      `SELECT id, estado, id_organizacion, id_usuario, fecha_devolucion_esperada, fecha_devolucion_real
+       FROM prestamos
+       WHERE id = ? 
+        AND id_organizacion = ?`,
+      [prestamoId, organizacionId]
+    );
+
+    if (!prestamo) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Préstamo no encontrado' });
+    }
+
+    if (prestamo.fecha_devolucion_real) {
+      return res.status(409).json({
+        error: 'prestamo_finalizado',
+        mensaje: 'Préstamo de libro ya finalizado.',
+      });
+    } else if (atrasado(prestamo.fecha_devolucion_esperada)) {
+      return res.status(409).json({
+        error: 'prestamo_atrasado',
+        mensaje: 'Aún no devolviste el libro y el préstamo ya venció.',
+      });
+    }
+
+    const nuevoEstado = "activo";
+
+    const [resultadoRetiro] = await pool.query(
+      `UPDATE prestamos
+       SET estado = ?
+       WHERE id = ? 
+        AND id_organizacion = ? 
+        AND estado = 'pendiente_retiro'`,
+      [nuevoEstado, prestamo.id, organizacionId]
+    );
+
+    if (resultadoRetiro.affectedRows === 0) {
+      return res.status(409).json({
+        error: 'conflicto', 
+        mensaje: 'El préstamo ya no está pendiente de retiro.'
+      });
+    }
+
+    const [[prestamoActualizado]] = await pool.query(
+      `SELECT p.id, p.id_libro, p.id_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+              p.extensiones_realizadas, p.lugar_retiro, p.estado,
+              l.titulo, l.autor, l.portada
+      FROM prestamos p
+      JOIN libros l ON l.id = p.id_libro
+      WHERE p.id = ? 
+        AND p.id_organizacion = ?`,
+      [prestamoId, organizacionId]
+    );
+
+    if (!prestamoActualizado) {
+      return res.status(404).json({ error: 'Préstamo no encontrado' });
+    }
+
+    try {
+      await notificarRetiroLibro({
+        idPrestamo: prestamoActualizado.id,
+        idLibro: prestamoActualizado.id_libro,
+        idUsuario: prestamoActualizado.id_usuario,
+        idOrganizacion: organizacionId,
+      });
+    } catch (errorNotificacion) {
+      console.error('Error al notificar retiro del libro:', errorNotificacion);
+    }
+
+    res.json({prestamoActualizado});
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PATCH /api/prestamos/mis-prestamos/:id/extender - Extender plazo del préstamo
-app.patch('/api/prestamos/mis-prestamos/:id/extender', verificarToken, sinImplementar);
+app.patch('/api/prestamos/mis-prestamos/:id/extender', verificarToken, async (req, res, next) => {
+  try {
+    const prestamoId = req.params.id;
+    const organizacionId = req.usuario.organizacionId;
+    const usuarioId = req.usuario.id;
+    const inicioDelDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const atrasado = (fechaEsperada,  hoy = new Date()) => inicioDelDia(fechaEsperada) < inicioDelDia(hoy);
+
+    const [[prestamo]] = await pool.query(
+      `SELECT id, estado, id_organizacion, fecha_devolucion_esperada, fecha_devolucion_real, extensiones_realizadas 
+       FROM prestamos
+       WHERE id = ? 
+        AND id_organizacion = ? 
+        AND id_usuario = ?`,
+      [prestamoId, organizacionId, usuarioId]
+    );
+
+    if (!prestamo) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Préstamo no encontrado' });
+    }
+
+    if (prestamo.fecha_devolucion_real) {
+      return res.status(409).json({
+        error: 'prestamo_finalizado',
+        mensaje: 'Préstamo de libro ya finalizado.',
+      });
+    } else if (prestamo.estado === 'pendiente_retiro') {
+      return res.status(409).json({
+        error: 'libro_pendiente_retiro',
+        mensaje: 'Préstamo no iniciado, el libro no fue retirado aún.',
+      });
+    } else if (atrasado(prestamo.fecha_devolucion_esperada)) {
+      return res.status(409).json({
+        error: 'prestamo_atrasado',
+        mensaje: 'Ya no puedes extender el plazo, aún no lo devolviste y el préstamo ya venció.',
+      });
+    }
+    
+    const [[configuracion]] = await pool.query(
+      'SELECT permite_extension, dias_extension, max_extensiones FROM configuraciones WHERE id_organizacion = ?',
+      [organizacionId]
+    );
+    if (!configuracion) {
+      return res.status(404).json({
+        error: 'configuracion_no_encontrada',
+        mensaje: 'La organización no tiene configuración de extensión',
+      });
+    }
+
+    if(configuracion.permite_extension !== 1){
+      return res.status(409).json({
+        error: 'extensiones_no_permitidas',
+        mensaje: 'Esta organización no permite extensiones.',
+      });
+    }
+    
+    if(prestamo.extensiones_realizadas >= configuracion.max_extensiones){
+      return res.status(409).json({
+        error: 'limite_extensiones',
+        mensaje: 'Este préstamo ya no tiene más extensiones disponibles.',
+      });
+    }
+
+    const diasPrestamo = configuracion.dias_extension;
+    const maxExtensiones = configuracion.max_extensiones;
+    const nuevaFechaDevolucion = new Date(prestamo.fecha_devolucion_esperada);
+    nuevaFechaDevolucion.setDate(nuevaFechaDevolucion.getDate() + diasPrestamo);
+
+    // El incremento y el tope se evalúan atómicamente en el propio UPDATE
+    // (no en JS) para que dos extensiones simultáneas no superen max_extensiones.
+    const [resultadoExtension] = await pool.query(
+      `UPDATE prestamos
+       SET fecha_devolucion_esperada = ?, fecha_devolucion_real = null, extensiones_realizadas = extensiones_realizadas + 1
+       WHERE id = ? AND id_organizacion = ? AND extensiones_realizadas < ? AND fecha_devolucion_real IS NULL AND estado NOT IN ('devuelto','cancelado', 'pendiente_retiro')`,
+      [nuevaFechaDevolucion, prestamo.id, organizacionId, configuracion.max_extensiones]
+    );
+
+    if (resultadoExtension.affectedRows === 0) {
+      return res.status(409).json({
+        error: 'limite_extensiones',
+        mensaje: 'Este préstamo ya no tiene más extensiones disponibles.',
+      });
+    }
+
+    const [[prestamoActualizado]] = await pool.query(
+      `SELECT p.id, p.id_libro, p.id_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+              p.extensiones_realizadas, p.lugar_retiro, p.estado,
+              l.titulo, l.autor, l.portada
+      FROM prestamos p
+      JOIN libros l ON l.id = p.id_libro
+      WHERE p.id = ? AND p.id_organizacion = ?`,
+      [prestamoId, organizacionId]
+    );
+
+    if (!prestamoActualizado) {
+      return res.status(404).json({ error: 'Préstamo no encontrado' });
+    }
+
+    try {
+      await notificarExtensionPrestamo({
+        idPrestamo: prestamoActualizado.id,
+        idLibro: prestamoActualizado.id_libro,
+        idUsuario: prestamoActualizado.id_usuario,
+        idOrganizacion: organizacionId,
+      });
+    } catch (errorNotificacion) {
+      console.error('Error al notificar extensión de préstamo:', errorNotificacion);
+    }
+
+    res.json({
+      ...prestamoActualizado,
+      max_extensiones: maxExtensiones,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // POST /api/prestamos - Crear un nuevo préstamo (cualquier usuario autenticado)
 app.post('/api/prestamos', verificarToken, async (req, res, next) => {
@@ -891,13 +1102,91 @@ app.get('/api/prestamos', verificarToken, verificarAdmin, sinImplementar);
 app.get('/api/prestamos/:id', verificarToken, verificarAdmin, sinImplementar);
 
 // PATCH /api/prestamos/:id/devolver - Marcar préstamo como devuelto (admin)
-app.patch('/api/prestamos/:id/devolver', verificarToken, verificarAdmin, sinImplementar);
+app.patch('/api/prestamos/:id/devolver', verificarToken, async (req, res, next) => {
+  try {
+
+    const prestamoId = req.params.id;
+    const organizacionId = req.usuario.organizacionId;
+    let nuevoEstado = 'devuelto';
+
+    const [[prestamo]] = await pool.query(
+      `SELECT id, estado, id_organizacion FROM prestamos
+       WHERE id = ? AND id_organizacion = ?`,
+      [prestamoId, organizacionId]
+    );
+
+    if (!prestamo) {
+      return res.status(404).json({ error: 'no_encontrado', mensaje: 'Préstamo no encontrado' });
+    }
+
+    if (!['activo', 'atrasado', 'pendiente_retiro'].includes(prestamo.estado)) {
+      return res.status(409).json({ error: 'no_disponible', mensaje: 'El préstamo no está disponible' });
+    }
+
+    if (prestamo.estado === 'pendiente_retiro') {
+      nuevoEstado = 'cancelado';
+
+      await pool.query(
+        'UPDATE prestamos SET estado = ? WHERE id = ? AND id_organizacion = ?',
+        [nuevoEstado, prestamo.id, organizacionId]
+      );
+
+      const [[prestamoActualizado]] = await pool.query(
+        `SELECT p.id, p.id_libro, p.id_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+                p.extensiones_realizadas, p.lugar_retiro, p.estado,
+                l.titulo, l.autor, l.portada
+        FROM prestamos p
+        JOIN libros l ON l.id = p.id_libro
+        WHERE p.id = ? AND p.id_organizacion = ?`,
+        [prestamoId, organizacionId]
+      );
+
+      if (!prestamoActualizado) {
+        return res.status(404).json({ error: 'Préstamo no encontrado' });
+      }
+      return res.json(prestamoActualizado);
+    }
+    await pool.query(
+      `UPDATE prestamos SET estado = ?, fecha_devolucion_real = NOW() WHERE id = ? AND id_organizacion = ? AND estado IN ('activo','atrasado','pendiente_retiro') `,
+      [nuevoEstado, prestamo.id, organizacionId]
+    );
+
+    const [[prestamoActualizado]] = await pool.query(
+      `SELECT p.id, p.id_libro, p.id_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+              p.extensiones_realizadas, p.lugar_retiro, p.estado,
+              l.titulo, l.autor, l.portada
+      FROM prestamos p
+      JOIN libros l ON l.id = p.id_libro
+      WHERE p.id = ? AND p.id_organizacion = ?`,
+      [prestamoId, organizacionId]
+    );
+
+    if (!prestamoActualizado) {
+      return res.status(404).json({ error: 'Préstamo no encontrado' });
+    }
+
+    try {
+      await notificarDevolucionPrestamo({
+        idPrestamo: prestamoActualizado.id,
+        idLibro: prestamoActualizado.id_libro,
+        idUsuario: prestamoActualizado.id_usuario,
+        idOrganizacion: organizacionId,
+      });
+    } catch (errorNotificacion) {
+      console.error('Error al notificar devolución de préstamo:', errorNotificacion);
+    }
+
+    res.json(prestamoActualizado);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // DELETE /api/prestamos/:id - Eliminar un préstamo (admin)
-app.delete('/api/prestamos/:id', verificarToken, verificarAdmin, sinImplementar);
+app.delete('/api/prestamos/:id', verificarToken, verificarAdmin, );
 
 /* ============================================================
-   MANEJO DE ERRORES
+   MANEJO DE ERRORES  
    Van al final: Express los evalúa en orden y estos son la red
    que atrapa todo lo que no matcheó antes.
    ============================================================ */
