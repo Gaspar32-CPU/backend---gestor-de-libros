@@ -28,7 +28,7 @@ async function obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganiza
     pool.query('SELECT titulo FROM libros WHERE id = ?', [idLibro]),
     pool.query('SELECT nombre, email FROM usuarios WHERE id = ?', [idUsuario]),
     pool.query("SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion'", [idOrganizacion]),
-    pool.query("SELECT id, nombre, fecha_devolucion_esperada, extensiones_realizadas FROM prestamos WHERE id = ? AND id_organizacion = ?", [idPrestamo, idOrganizacion])
+    pool.query("SELECT id, fecha_devolucion_esperada, extensiones_realizadas FROM prestamos WHERE id = ? AND id_organizacion = ?", [idPrestamo, idOrganizacion])
   ]);
 
   return {
@@ -43,7 +43,7 @@ async function obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganiza
  * Guarda la notificación en la tabla (estado 'pendiente') y devuelve el
  * envío listo para pasarle a procesarEnvios.
  */
-async function crearEnvio({ idUsuario, idPrestamo, tipo, mensaje, para, asunto, titulo }) {
+async function crearEnvio({ idUsuario, idPrestamo, tipo, mensaje, para, asunto, titulo, html }) {
   const [resultado] = await pool.query(
     `INSERT INTO notificaciones (id_usuario, id_prestamo, tipo, canal, mensaje, estado)
      VALUES (?, ?, ?, 'email', ?, 'pendiente')`,
@@ -54,7 +54,7 @@ async function crearEnvio({ idUsuario, idPrestamo, tipo, mensaje, para, asunto, 
     idNotificacion: resultado.insertId,
     para,
     asunto,
-    html: plantillaEmail({ titulo, cuerpo: escaparHtml(mensaje) }),
+    html: html ?? plantillaEmail({ titulo, cuerpo: escaparHtml(mensaje) }),
   };
 }
 
@@ -108,7 +108,7 @@ function procesarEnviosEnSegundoPlano(envios, idPrestamo) {
 export async function notificarExtensionPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
   const { tituloLibro, usuario, admins, prestamo } = await obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganizacion });
 
-  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó la extensión del préstamo de "${tituloLibro}" y la fecha de retiro es el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible'}.`;
+  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó la extensión del préstamo de "${tituloLibro}" y la fecha de devolucion es el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible'}.`;
   const mensajeParaSolicitante = `Registramos tu solicitud de extensión del préstamo de "${tituloLibro}". Se extendió hasta el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible consulta con el administrador de tu institución'}.`;
 
   const envios = [];
@@ -125,9 +125,6 @@ export async function notificarExtensionPrestamo({ idPrestamo, idLibro, idUsuari
     }));
   }
 
-  // El solicitante también es parte del RF de notificaciones ("al generar
-  // un préstamo"): además del aviso al admin para que prepare el libro,
-  // el usuario recibe la confirmación de que su pedido quedó registrado.
   if (usuario?.email) {
     envios.push(await crearEnvio({
       idUsuario,
@@ -143,12 +140,91 @@ export async function notificarExtensionPrestamo({ idPrestamo, idLibro, idUsuari
   procesarEnviosEnSegundoPlano(envios, idPrestamo);
 }
 
+export async function notificarRetiroLibro({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
+  const { tituloLibro, usuario, prestamo } = await obtenerDatosPrestamo({
+    idLibro,
+    idPrestamo,
+    idUsuario,
+    idOrganizacion,
+  });
+
+  const fechaLimite = prestamo?.fecha_devolucion_esperada
+    ? new Date(prestamo.fecha_devolucion_esperada).toLocaleDateString()
+    : null;
+
+  const textoFecha = fechaLimite
+    ? `Recordá devolverlo antes del ${fechaLimite}.`
+    : 'No pudimos obtener la fecha de devolución, consultá con el administrador de tu institución.';
+
+  const mensajeParaSolicitante = `Ya registramos el retiro de "${tituloLibro}". ${textoFecha}`;
+
+  const tituloEscapado = escaparHtml(tituloLibro);
+  const cuerpoHtml = `
+    Un/a administrador/a de tu organización confirmó el retiro de "${tituloEscapado}".
+    <br /><br />
+    ${escaparHtml(textoFecha)}
+    <br /><br />
+    Esperamos que lo disfrutes y no olvides dejar una reseña al devolverlo.
+  `;
+
+  const envios = [];
+
+  if (usuario?.email) {
+    envios.push(await crearEnvio({
+      idUsuario,
+      idPrestamo,
+      tipo: 'retiro_libro',
+      mensaje: mensajeParaSolicitante,
+      html: plantillaEmail({ titulo: 'Retiro de libro', cuerpo: cuerpoHtml }),
+      para: usuario.email,
+      asunto: 'Retiro de libro registrado',
+    }));
+  }
+
+  procesarEnviosEnSegundoPlano(envios, idPrestamo);
+}
+
+export async function notificarDevolucionPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
+  const { tituloLibro, usuario } = await obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganizacion });
+  const link = `${process.env.FRONTEND_URL}/libro/${idLibro}`;
+
+  const mensajeParaSolicitante = `Un/a administrador de tu organización confirmó la devolución de "${tituloLibro}". Ingresá a ${link} para dejar tu reseña.`;
+
+  const tituloEscapado = escaparHtml(tituloLibro);
+  const cuerpoHtml = `
+    Un/a administrador de tu organización confirmó la devolución de "${tituloEscapado}".
+    <br /><br />
+    Ingresando al siguiente link, podés dejar tu valoración del mismo.
+    <br /><br />
+    <a href="${link}" style="display:inline-block; background-color:#12A594; color:#FFFFFF; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:bold;">Dejar una reseña</a>
+    <br /><br />
+    Si el botón no funciona, copiá este link en el navegador:<br />
+    <span style="color:#8595A6; font-size:13px;">${link}</span>
+  `;
+
+  const envios = [];
+
+  if (usuario?.email) {
+    envios.push(await crearEnvio({
+      idUsuario,
+      idPrestamo,
+      tipo: 'devolucion_libro',
+      mensaje: mensajeParaSolicitante,
+      html: plantillaEmail({ titulo: 'Devolucion de libro', cuerpo: cuerpoHtml }),
+      para: usuario.email,
+      asunto: 'Devolucion de libro',
+    }));
+  }
+
+  procesarEnviosEnSegundoPlano(envios, idPrestamo);
+}
+
 /**
  * Se dispara al crear un préstamo: avisa a los admins de la organización
  * de que un usuario pidió un libro, para que lo tengan pendiente de entrega.
  */
 export async function notificarNuevoPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
-  const { tituloLibro, usuario, admins } = await obtenerDatosPrestamo({ idLibro, idUsuario, idOrganizacion });
+  const { tituloLibro, usuario, admins } = await obtenerDatosPrestamo({ idLibro, idUsuario, idPrestamo, idOrganizacion });
 
   const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó el préstamo de "${tituloLibro}".`;
   const mensajeParaSolicitante = `Registramos tu solicitud de préstamo de "${tituloLibro}". Te avisamos por acá cuando esté listo para retirar.`;
