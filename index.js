@@ -297,6 +297,9 @@ app.delete('/api/organizaciones/:id/configuracion', verificarToken, verificarAdm
    USUARIOS
    ============================================================ */
 
+const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const COOLDOWN_REGISTRO_PENDIENTE_MS = 60 * 1000;
+
 // POST /api/auth/register - Registrarse (público, con mail de dominio asociado)
 // Si vienen "organizacion" y "dominio", este registro no es un lector
 // sumándose a una organización existente: es el alta de una organización
@@ -322,17 +325,30 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ error: 'Todos los campos son obligatorios' });
   }
 
+  if (!EMAIL_VALIDO.test(correo)) {
+    return res.status(400).json({ error: 'El correo no es válido' });
+  }
+
   // Solo rebota si la cuenta ya está activada (creó su contraseña). Si
   // existe pero sigue pendiente, puede ser que alguien haya registrado este
   // correo sin ser su dueño (el link le llegó al dueño, no a quien lo
   // registró) o que el link original se haya perdido o vencido. En ese caso
   // no se bloquea al dueño real: se pisan los datos personales y se manda un
   // link nuevo, más abajo.
-  const usuarioExistente = await buscarUsuarioPorCorreo(correo);
-  if (usuarioExistente && usuarioExistente.contrasena !== null) {
+  const usuarioPendiente = await buscarUsuarioPorCorreo(correo);
+  if (usuarioPendiente && usuarioPendiente.contrasena !== null) {
     return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
   }
-  const usuarioPendiente = usuarioExistente;
+
+  if (usuarioPendiente) {
+    const msDesdeUltimoIntento = Date.now() - new Date(usuarioPendiente.fecharegistro).getTime();
+    if (msDesdeUltimoIntento < COOLDOWN_REGISTRO_PENDIENTE_MS) {
+      return res.status(429).json({
+        code: 'DEMASIADOS_INTENTOS',
+        message: 'Ya enviamos un email a ese correo hace instantes. Esperá un minuto antes de volver a intentar.',
+      });
+    }
+  }
 
   // Los dominios se guardan y se buscan siempre con "@" adelante
   // ("@anima.edu.uy"), así el registro de lectores y el alta de
@@ -357,19 +373,20 @@ app.post('/api/auth/register', async (req, res) => {
   };
 
   // Primero se validan los datos de cada caso; recién después se escribe
-  // en la base, todo junto dentro de una transacción.
-  // Si la cuenta está pendiente ya tiene organización y rol, así que no se
-  // valida nada de eso: solo se le actualizan los datos personales.
+  // en la base, todo junto dentro de una transacción. Las tres situaciones
+  // posibles son mutuamente excluyentes y se deciden acá, en un solo lugar,
+  // para que la validación y la escritura de más abajo nunca se desalineen.
   let organizacionExistente;
   let expiracion;
 
-  if (!usuarioPendiente && !creaOrganizacionNueva) {
-    organizacionExistente = await buscarOrganizacionPorDominio(dominioConArroba);
-
-    if (!organizacionExistente) {
-      return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
+  if (usuarioPendiente) {
+    if (creaOrganizacionNueva) {
+      return res.status(409).json({
+        code: 'CORREO_PENDIENTE_EXISTENTE',
+        message: 'Ese correo ya tiene un registro pendiente. Primero completalo o pedí uno nuevo antes de dar de alta una organización.',
+      });
     }
-  } else if (!usuarioPendiente) {
+  } else if (creaOrganizacionNueva) {
     // Quien da de alta la organización tiene que tener un correo de ese
     // dominio: como el link de validación llega a su correo, eso prueba que
     // pertenece a la institución. Si no, cualquiera podría reclamar el
@@ -396,6 +413,12 @@ app.post('/api/auth/register', async (req, res) => {
     const mesesSuscripcion = ciclo === 'anual' ? 12 : 1;
     expiracion = new Date();
     expiracion.setMonth(expiracion.getMonth() + mesesSuscripcion);
+  } else {
+    organizacionExistente = await buscarOrganizacionPorDominio(dominioConArroba);
+
+    if (!organizacionExistente) {
+      return res.status(400).json({ error: 'No existe una organización para ese dominio de correo' });
+    }
   }
 
   // Organización, usuario y email van juntos en una transacción:
@@ -411,10 +434,14 @@ app.post('/api/auth/register', async (req, res) => {
 
     let idUsuario;
     if (usuarioPendiente) {
-      await actualizarUsuarioPendiente(
-        { id: usuarioPendiente.id, nombre, ci: cedula, telefono },
+      const actualizado = await actualizarUsuarioPendiente(
+        { id: usuarioPendiente.id, nombre, apellido, ci: cedula, telefono },
         conexion
       );
+      if (!actualizado) {
+        await conexion.rollback();
+        return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
+      }
       idUsuario = usuarioPendiente.id;
     } else {
       let organizacionId;
@@ -429,7 +456,7 @@ app.post('/api/auth/register', async (req, res) => {
       }
 
       const usuarioNuevo = await crearUsuario(
-        { ...datosUsuario, organizacionId, rol: creaOrganizacionNueva ? 'admin_organizacion' : 'lector' },
+        { ...datosUsuario, apellido, organizacionId, rol: creaOrganizacionNueva ? 'admin_organizacion' : 'lector' },
         conexion
       );
       idUsuario = usuarioNuevo.id;
@@ -466,35 +493,51 @@ app.post('/api/auth/register', async (req, res) => {
 // la cree ella misma. Se asume rol "lector": invitar a otro admin no está
 // contemplado por este endpoint.
 app.post('/api/usuarios', verificarToken, verificarAdmin, async (req, res, next) => {
-  const { nombre, cedula, correo, telefono } = req.body ?? {};
+  const { nombre, apellido, cedula, correo, telefono } = req.body ?? {};
 
-  if (!nombre || !cedula || !correo || !telefono) {
+  if (!nombre || !apellido || !cedula || !correo || !telefono) {
     return res.status(400).json({
       error: 'faltan_campos',
-      mensaje: 'Faltan campos obligatorios: nombre, cedula, correo, telefono',
+      mensaje: 'Faltan campos obligatorios: nombre, apellido, cedula, correo, telefono',
     });
   }
 
-  if (await buscarUsuarioPorCorreo(correo)) {
+  if (!EMAIL_VALIDO.test(correo)) {
+    return res.status(400).json({ error: 'El correo no es válido' });
+  }
+
+  const usuarioExistente = await buscarUsuarioPorCorreo(correo);
+  if (usuarioExistente && usuarioExistente.contrasena !== null) {
     return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
   }
 
   try {
-    const usuarioInvitado = await crearUsuario({
-      nombre,
-      ci: cedula,
-      correo,
-      telefono,
-      contrasena: null,
-      organizacionId: req.usuario.organizacionId,
-      rol: 'lector',
-    });
+    let idUsuario;
+    if (usuarioExistente) {
+      const actualizado = await actualizarUsuarioPendiente({ id: usuarioExistente.id, nombre, apellido, ci: cedula, telefono });
+      if (!actualizado) {
+        return res.status(409).json({ code: 'CORREO_YA_REGISTRADO', message: 'Ese correo ya está registrado' });
+      }
+      idUsuario = usuarioExistente.id;
+    } else {
+      const usuarioInvitado = await crearUsuario({
+        nombre,
+        apellido,
+        ci: cedula,
+        correo,
+        telefono,
+        contrasena: null,
+        organizacionId: req.usuario.organizacionId,
+        rol: 'lector',
+      });
+      idUsuario = usuarioInvitado.id;
+    }
 
-    const tokenInvitacion = generarTokenCrearContrasena(usuarioInvitado.id, '7d');
+    const tokenInvitacion = generarTokenCrearContrasena(idUsuario, '7d');
 
     await notificarInvitacion({ nombre, correo, tokenInvitacion });
 
-    res.status(201).json({ id: usuarioInvitado.id, nombre, correo });
+    res.status(201).json({ id: idUsuario, nombre, correo });
   } catch (err) {
     next(err);
   }

@@ -112,13 +112,13 @@ export async function listarUsuarios() {
 // `conexion` permite correr el insert dentro de una transacción (ver
 // POST /api/auth/register); si no se pasa, usa el pool como siempre.
 export async function crearUsuario(
-  { nombre, ci, correo, telefono, contrasena, organizacionId, rol = 'lector' },
+  { nombre, apellido, ci, correo, telefono, contrasena, organizacionId, rol = 'lector' },
   conexion = pool
 ) {
   const [resultado] = await conexion.query(
-    `INSERT INTO usuarios (id_organizacion, ci, nombre, email, telefono, contrasena, rol)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [organizacionId, ci, nombre, correo, telefono, contrasena, rol]
+    `INSERT INTO usuarios (id_organizacion, ci, nombre, apellido, email, telefono, contrasena, rol)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [organizacionId, ci, nombre, apellido, correo, telefono, contrasena, rol]
   );
 
   return usuarioDeDB({
@@ -126,6 +126,7 @@ export async function crearUsuario(
     id_organizacion: organizacionId,
     ci,
     nombre,
+    apellido,
     email: correo,
     telefono,
     contrasena,
@@ -138,12 +139,13 @@ export async function crearUsuario(
 // contraseña (ver POST /api/auth/register). El "contrasena IS NULL" del
 // WHERE asegura que nunca se toque una cuenta ya activada. No cambia ni la
 // organización ni el rol.
-export async function actualizarUsuarioPendiente({ id, nombre, ci, telefono }, conexion = pool) {
-  await conexion.query(
-    `UPDATE usuarios SET nombre = ?, ci = ?, telefono = ?
+export async function actualizarUsuarioPendiente({ id, nombre, apellido, ci, telefono }, conexion = pool) {
+  const [resultado] = await conexion.query(
+    `UPDATE usuarios SET nombre = ?, apellido = ?, ci = ?, telefono = ?, fecha_registro = NOW()
      WHERE id = ? AND contrasena IS NULL`,
-    [nombre, ci, telefono, id]
+    [nombre, apellido, ci, telefono, id]
   );
+  return resultado.affectedRows > 0;
 }
 
 /* ============================================================
