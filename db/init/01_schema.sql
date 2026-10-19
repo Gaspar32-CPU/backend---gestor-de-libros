@@ -171,21 +171,22 @@ CREATE TABLE reservas (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
--- RESEÑAS (una por usuario y libro)
+-- RESEÑAS
 -- ---------------------------------------------------------------------
 CREATE TABLE resenas (
-    id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_usuario     INT UNSIGNED NOT NULL,
-    id_libro       INT UNSIGNED NOT NULL,
-    calificacion   TINYINT UNSIGNED NOT NULL,
-    comentario     TEXT,
-    fecha          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_usuario       INT UNSIGNED NOT NULL,
+    id_libro         INT UNSIGNED NOT NULL,
+    id_organizacion  INT UNSIGNED NOT NULL,
+    calificacion     TINYINT UNSIGNED NOT NULL,
+    comentario       TEXT,
+    fecha            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_resena_usuario_libro (id_usuario, id_libro),
     KEY idx_resenas_libro (id_libro),
+    KEY idx_resenas_org (id_organizacion),
     CONSTRAINT chk_calificacion CHECK (calificacion BETWEEN 1 AND 5),
-    CONSTRAINT fk_resenas_usuario FOREIGN KEY (id_usuario)
-        REFERENCES usuarios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_resenas_usuario_org FOREIGN KEY (id_usuario, id_organizacion)
+        REFERENCES usuarios(id, id_organizacion) ON DELETE CASCADE,
     CONSTRAINT fk_resenas_libro FOREIGN KEY (id_libro)
         REFERENCES libros(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
