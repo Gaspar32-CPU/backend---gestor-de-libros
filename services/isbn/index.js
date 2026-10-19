@@ -10,11 +10,11 @@
  * Node 24 ya trae fetch global: no hace falta instalar node-fetch.
  */
 
-import { guardarEnCache, leerDeCache, limpiarCache } from "./cache.js";
-import { enriquecerConOpenLibrary } from "./enriquecer.js";
-import { consultarGoogleBooks } from "./fuentes/googleBooks.js";
-import { consultarOpenLibrary } from "./fuentes/openLibrary.js";
-import { isbnEsValido, limpiarIsbn } from "./validacion.js";
+import { guardarEnCache, leerDeCache, limpiarCache } from './cache.js'
+import { enriquecerConOpenLibrary } from './enriquecer.js'
+import { consultarGoogleBooks } from './fuentes/googleBooks.js'
+import { consultarOpenLibrary } from './fuentes/openLibrary.js'
+import { isbnEsValido, limpiarIsbn } from './validacion.js'
 
 /**
  * Busca los datos de un libro por ISBN.
@@ -26,48 +26,50 @@ import { isbnEsValido, limpiarIsbn } from "./validacion.js";
  *          problemas de conexión (distinto de "no existe").
  */
 async function buscarLibroPorIsbn(isbn) {
-  const isbnLimpio = limpiarIsbn(isbn);
+  const isbnLimpio = limpiarIsbn(isbn)
 
   if (!isbnEsValido(isbnLimpio)) {
-    throw new Error("ISBN inválido");
+    throw new Error('ISBN inválido')
   }
 
-  const enCache = leerDeCache(isbnLimpio);
+  const enCache = leerDeCache(isbnLimpio)
   if (enCache !== undefined) {
-    return enCache;
+    return enCache
   }
 
-  let algunaFuenteRespondio = false;
+  let algunaFuenteRespondio = false
 
   for (const consultar of FUENTES) {
     try {
-      const resultado = await consultar(isbnLimpio);
+      const resultado = await consultar(isbnLimpio)
 
-      algunaFuenteRespondio = true;
+      algunaFuenteRespondio = true
 
       if (resultado) {
         const libro = {
           ...(await enriquecerConOpenLibrary(resultado, isbnLimpio)),
           isbn: isbnLimpio,
-        };
+        }
 
-        guardarEnCache(isbnLimpio, libro);
-        return libro;
+        guardarEnCache(isbnLimpio, libro)
+        return libro
       }
       // null = la fuente respondió bien pero no conoce el ISBN.
       // Seguimos con la próxima.
     } catch (error) {
-      console.error(`[isbn] Falló una fuente para ${isbnLimpio}: ${error.message}`);
+      console.error(
+        `[isbn] Falló una fuente para ${isbnLimpio}: ${error.message}`,
+      )
     }
   }
 
   // Ninguna fuente encontró el libro. Distinguimos por qué:
   if (!algunaFuenteRespondio) {
-    throw new Error("Las fuentes externas no están disponibles");
+    throw new Error('Las fuentes externas no están disponibles')
   }
 
-  guardarEnCache(isbnLimpio, null);
-  return null;
+  guardarEnCache(isbnLimpio, null)
+  return null
 }
 
 /* ================================================================== */
@@ -76,13 +78,6 @@ async function buscarLibroPorIsbn(isbn) {
 
 // Orden de preferencia. Google va primero: trae idioma siempre y una
 // descripción editorial real, en el idioma de la edición.
-const FUENTES = [consultarGoogleBooks, consultarOpenLibrary];
+const FUENTES = [consultarGoogleBooks, consultarOpenLibrary]
 
-
-
-export {
-  buscarLibroPorIsbn,
-  limpiarIsbn,
-  isbnEsValido,
-  limpiarCache,
-};
+export { buscarLibroPorIsbn, limpiarIsbn, isbnEsValido, limpiarCache }

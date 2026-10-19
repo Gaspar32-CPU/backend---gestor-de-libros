@@ -13,37 +13,79 @@ export const planesComparativa = {
     {
       nombre: 'Catálogo',
       filas: [
-        { funcionalidad: 'Catálogo con búsqueda y filtros', valores: [true, true, true] },
-        { funcionalidad: 'Fichas de libro con reseñas', valores: [true, true, true] },
-        { funcionalidad: 'Vista de invitado (solo lectura)', valores: [true, true, true] },
-        { funcionalidad: 'Recomendados y novedades destacadas', valores: [true, true, true] },
+        {
+          funcionalidad: 'Catálogo con búsqueda y filtros',
+          valores: [true, true, true],
+        },
+        {
+          funcionalidad: 'Fichas de libro con reseñas',
+          valores: [true, true, true],
+        },
+        {
+          funcionalidad: 'Vista de invitado (solo lectura)',
+          valores: [true, true, true],
+        },
+        {
+          funcionalidad: 'Recomendados y novedades destacadas',
+          valores: [true, true, true],
+        },
       ],
     },
     {
       nombre: 'Préstamos',
       filas: [
-        { funcionalidad: 'Préstamos automáticos por stock', valores: [true, true, true] },
-        { funcionalidad: 'Gestión de devoluciones', valores: [true, true, true] },
-        { funcionalidad: 'Reglas de préstamo configurables', valores: [false, true, true] },
-        { funcionalidad: 'Congelamiento por atraso reiterado', valores: [false, true, true] },
+        {
+          funcionalidad: 'Préstamos automáticos por stock',
+          valores: [true, true, true],
+        },
+        {
+          funcionalidad: 'Gestión de devoluciones',
+          valores: [true, true, true],
+        },
+        {
+          funcionalidad: 'Reglas de préstamo configurables',
+          valores: [false, true, true],
+        },
+        {
+          funcionalidad: 'Congelamiento por atraso reiterado',
+          valores: [false, true, true],
+        },
       ],
     },
     {
       nombre: 'Marca y reportes',
       filas: [
-        { funcionalidad: 'Personalización de marca', valores: [false, true, true] },
-        { funcionalidad: 'Plantillas de notificación editables', valores: [false, true, true] },
-        { funcionalidad: 'Reportes de circulación', valores: ['Básicos', 'Avanzados', 'Avanzados'] },
-        { funcionalidad: 'Exportación de reportes', valores: [false, true, true] },
+        {
+          funcionalidad: 'Personalización de marca',
+          valores: [false, true, true],
+        },
+        {
+          funcionalidad: 'Plantillas de notificación editables',
+          valores: [false, true, true],
+        },
+        {
+          funcionalidad: 'Reportes de circulación',
+          valores: ['Básicos', 'Avanzados', 'Avanzados'],
+        },
+        {
+          funcionalidad: 'Exportación de reportes',
+          valores: [false, true, true],
+        },
       ],
     },
     {
       nombre: 'Soporte',
       filas: [
         { funcionalidad: 'Migración de tu Excel', valores: [true, true, true] },
-        { funcionalidad: 'Canal de soporte', valores: ['Correo', 'Correo y teléfono', 'Prioritario 4 h'] },
-        { funcionalidad: 'Gestor de cuenta dedicado', valores: [false, false, true] },
+        {
+          funcionalidad: 'Canal de soporte',
+          valores: ['Correo', 'Correo y teléfono', 'Prioritario 4 h'],
+        },
+        {
+          funcionalidad: 'Gestor de cuenta dedicado',
+          valores: [false, false, true],
+        },
       ],
     },
   ],
-};
+}

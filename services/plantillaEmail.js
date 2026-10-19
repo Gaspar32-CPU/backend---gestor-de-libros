@@ -29,5 +29,5 @@ export function plantillaEmail({ titulo, cuerpo }) {
       </table>
     </td>
   </tr>
-</table>`;
+</table>`
 }

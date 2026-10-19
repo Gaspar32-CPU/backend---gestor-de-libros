@@ -169,17 +169,19 @@ model reportes_problemas {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model resenas {
-  id           Int      @id @default(autoincrement()) @db.UnsignedInt
-  id_usuario   Int      @db.UnsignedInt
-  id_libro     Int      @db.UnsignedInt
-  calificacion Int      @db.UnsignedTinyInt
-  comentario   String?  @db.Text
-  fecha        DateTime @default(now()) @db.DateTime(0)
-  libros       Libro    @relation(fields: [id_libro], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_resenas_libro")
-  usuarios     Usuario  @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_resenas_usuario")
+  id              Int      @id @default(autoincrement()) @db.UnsignedInt
+  id_usuario      Int      @db.UnsignedInt
+  id_libro        Int      @db.UnsignedInt
+  id_organizacion Int      @db.UnsignedInt
+  calificacion    Int      @db.UnsignedTinyInt
+  comentario      String?  @db.Text
+  fecha           DateTime @default(now()) @db.DateTime(0)
+  libros          Libro    @relation(fields: [id_libro], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_resenas_libro")
+  usuarios        Usuario  @relation(fields: [id_usuario, id_organizacion], references: [id, id_organizacion], onDelete: Cascade, onUpdate: NoAction, map: "fk_resenas_usuario_org")
 
-  @@unique([id_usuario, id_libro], map: "uq_resena_usuario_libro")
+  @@index([id_usuario, id_organizacion], map: "fk_resenas_usuario_org")
   @@index([id_libro], map: "idx_resenas_libro")
+  @@index([id_organizacion], map: "idx_resenas_org")
 }
 
 model reservas {

@@ -10,9 +10,9 @@
 // Son JWT firmados con JWT_SECRET, con un campo "proposito" para que este
 // token no sirva como token de sesión (y viceversa). La función que genera
 // y la que verifica viven juntas: así el propósito está en un solo lugar.
-import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken'
 
-const CREAR_CONTRASENA = 'crear_contrasena';
+const CREAR_CONTRASENA = 'crear_contrasena'
 
 /**
  * Genera el token que va en el link del email. El vencimiento cambia según
@@ -23,8 +23,8 @@ export function generarTokenCrearContrasena(idUsuario, vencimiento = '24h') {
   return jwt.sign(
     { id: idUsuario, proposito: CREAR_CONTRASENA },
     process.env.JWT_SECRET,
-    { expiresIn: vencimiento }
-  );
+    { expiresIn: vencimiento },
+  )
 }
 
 /**
@@ -34,9 +34,9 @@ export function generarTokenCrearContrasena(idUsuario, vencimiento = '24h') {
  */
 export function verificarTokenCrearContrasena(token) {
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    return payload.proposito === CREAR_CONTRASENA ? payload.id : null;
+    const payload = jwt.verify(token, process.env.JWT_SECRET)
+    return payload.proposito === CREAR_CONTRASENA ? payload.id : null
   } catch {
-    return null;
+    return null
   }
 }

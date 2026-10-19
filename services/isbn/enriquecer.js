@@ -2,8 +2,8 @@
 /* Enriquecimiento con la fuente secundaria                            */
 /* ================================================================== */
 
-import { consultarOpenLibrary } from "./fuentes/openLibrary.js";
-import { limpiarCategorias } from "./normalizar.js";
+import { consultarOpenLibrary } from './fuentes/openLibrary.js'
+import { limpiarCategorias } from './normalizar.js'
 
 /**
  * Google devuelve categorías BISAC muy genéricas: muchas veces una sola,
@@ -12,11 +12,11 @@ import { limpiarCategorias } from "./normalizar.js";
  * depende que el filtro por género del catálogo sirva para algo.
  */
 function necesitaEnriquecimiento(libro) {
-  if (libro.fuente !== "Google Books") return false;
+  if (libro.fuente !== 'Google Books') return false
 
   return (
     libro.categorias.length <= 1 || !libro.descripcion || !libro.codigoIdioma
-  );
+  )
 }
 
 /**
@@ -24,17 +24,17 @@ function necesitaEnriquecimiento(libro) {
  * Nunca falla: si Open Library no responde, devolvemos el libro como estaba.
  */
 export async function enriquecerConOpenLibrary(libro, isbn) {
-  if (!necesitaEnriquecimiento(libro)) return libro;
+  if (!necesitaEnriquecimiento(libro)) return libro
 
-  let complemento = null;
+  let complemento = null
   try {
-    complemento = await consultarOpenLibrary(isbn);
+    complemento = await consultarOpenLibrary(isbn)
   } catch (error) {
-    console.warn(`[isbn] No se pudo enriquecer ${isbn}: ${error.message}`);
-    return libro;
+    console.warn(`[isbn] No se pudo enriquecer ${isbn}: ${error.message}`)
+    return libro
   }
 
-  if (!complemento) return libro;
+  if (!complemento) return libro
 
   return {
     ...libro,
@@ -47,5 +47,5 @@ export async function enriquecerConOpenLibrary(libro, isbn) {
     idioma: libro.idioma || complemento.idioma,
     codigoIdioma: libro.codigoIdioma || complemento.codigoIdioma,
     portada: libro.portada || complemento.portada,
-  };
+  }
 }
