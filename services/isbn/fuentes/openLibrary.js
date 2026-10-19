@@ -2,7 +2,7 @@
 /* Fuente: Open Library                                                */
 /* ================================================================== */
 
-import { pedirJson } from "../http.js";
+import { pedirJson } from '../http.js'
 import {
   extraerAnio,
   extraerCodigoIdioma,
@@ -13,13 +13,13 @@ import {
   textoDeDescripcion,
   traducirIdioma,
   unirTexto,
-} from "../normalizar.js";
+} from '../normalizar.js'
 
 function urlOpenLibrary(isbn, jscmd) {
   return (
     `https://openlibrary.org/api/books` +
     `?bibkeys=ISBN:${isbn}&format=json&jscmd=${jscmd}`
-  );
+  )
 }
 
 /**
@@ -28,12 +28,12 @@ function urlOpenLibrary(isbn, jscmd) {
  * mostrar su propio placeholder.
  */
 function portadaOpenLibrary(isbn) {
-  return `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`;
+  return `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`
 }
 
 /** La edición apunta a la obra: {"works": [{"key": "/works/OL...W"}]}. */
 function keyDeObra(details) {
-  return details.works?.[0]?.key ?? "";
+  return details.works?.[0]?.key ?? ''
 }
 
 /**
@@ -44,13 +44,15 @@ function keyDeObra(details) {
 async function consultarObraOpenLibrary(workKey) {
   const data = await pedirJson(
     `https://openlibrary.org${workKey}.json`,
-    "Open Library (work)",
-  );
+    'Open Library (work)',
+  )
 
   return {
-    descripcion: limpiarDescripcionOpenLibrary(textoDeDescripcion(data.description)),
+    descripcion: limpiarDescripcionOpenLibrary(
+      textoDeDescripcion(data.description),
+    ),
     subjects: data.subjects ?? [],
-  };
+  }
 }
 
 /**
@@ -60,14 +62,16 @@ async function consultarObraOpenLibrary(workKey) {
  *  - /works/...    la obra, con la descripción real
  */
 function normalizarOpenLibrary(isbn, data, details, obra = null) {
-  const codigoIdioma = extraerCodigoIdioma(details.languages);
+  const codigoIdioma = extraerCodigoIdioma(details.languages)
 
   const subjects = data.subjects?.length
     ? data.subjects
-    : (obra?.subjects?.length ? obra.subjects : details.subjects);
+    : obra?.subjects?.length
+      ? obra.subjects
+      : details.subjects
 
   return {
-    fuente: "Open Library",
+    fuente: 'Open Library',
     titulo: unirTexto([
       data.title ?? details.title,
       data.subtitle ?? details.subtitle,
@@ -78,17 +82,17 @@ function normalizarOpenLibrary(isbn, data, details, obra = null) {
       data.authors
         ?.map((a) => a.name)
         .filter(Boolean)
-        .join(", ") ||
+        .join(', ') ||
       details.by_statement ||
-      "",
+      '',
     // publishers: objetos {name} en data, strings planos en details.
     editorial:
       data.publishers
         ?.map((p) => p.name)
         .filter(Boolean)
-        .join(", ") ||
-      details.publishers?.filter(Boolean).join(", ") ||
-      "",
+        .join(', ') ||
+      details.publishers?.filter(Boolean).join(', ') ||
+      '',
     anio: extraerAnio(data.publish_date, details.publish_date),
     paginas: data.number_of_pages ?? details.number_of_pages ?? null,
     // Sin excerpts: o hay sinopsis real, o queda vacío para que lo cargue
@@ -96,50 +100,54 @@ function normalizarOpenLibrary(isbn, data, details, obra = null) {
     descripcion: quitarHtml(
       limpiarDescripcionOpenLibrary(textoDeDescripcion(details.description)) ||
         obra?.descripcion ||
-        "",
+        '',
     ),
     categorias: limpiarCategorias(nombresDeSubjects(subjects)),
     idioma: traducirIdioma(codigoIdioma),
     codigoIdioma,
     portada: portadaOpenLibrary(isbn),
-  };
+  }
 }
 
 export async function consultarOpenLibrary(isbn) {
-  const bibkey = `ISBN:${isbn}`;
+  const bibkey = `ISBN:${isbn}`
 
   const [resData, resDetails] = await Promise.allSettled([
-    pedirJson(urlOpenLibrary(isbn, "data"), "Open Library"),
-    pedirJson(urlOpenLibrary(isbn, "details"), "Open Library (details)"),
-  ]);
+    pedirJson(urlOpenLibrary(isbn, 'data'), 'Open Library'),
+    pedirJson(urlOpenLibrary(isbn, 'details'), 'Open Library (details)'),
+  ])
 
   // data es la fuente principal: si falla, falla toda la consulta.
-  if (resData.status === "rejected") {
-    throw resData.reason;
+  if (resData.status === 'rejected') {
+    throw resData.reason
   }
 
-  const data = resData.value[bibkey];
-  if (!data) return null; // La API funcionó, pero no encontró el ISBN.
+  const data = resData.value[bibkey]
+  if (!data) return null // La API funcionó, pero no encontró el ISBN.
 
   // details es complemento (idioma): si falla, seguimos sin idioma.
-  let details = {};
-  if (resDetails.status === "fulfilled") {
-    details = resDetails.value[bibkey]?.details ?? {};
+  let details = {}
+  if (resDetails.status === 'fulfilled') {
+    details = resDetails.value[bibkey]?.details ?? {}
   } else {
-    console.warn(`[isbn] details falló para ${isbn}: ${resDetails.reason.message}`);
+    console.warn(
+      `[isbn] details falló para ${isbn}: ${resDetails.reason.message}`,
+    )
   }
 
   // La obra tiene la descripción. Solo la pedimos si la edición no la trae.
-  let obra = null;
-  const workKey = keyDeObra(details);
+  let obra = null
+  const workKey = keyDeObra(details)
 
   if (workKey && !textoDeDescripcion(details.description)) {
     try {
-      obra = await consultarObraOpenLibrary(workKey);
+      obra = await consultarObraOpenLibrary(workKey)
     } catch (error) {
-      console.warn(`[isbn] No se pudo leer la obra ${workKey}: ${error.message}`);
+      console.warn(
+        `[isbn] No se pudo leer la obra ${workKey}: ${error.message}`,
+      )
     }
   }
 
-  return normalizarOpenLibrary(isbn, data, details, obra);
+  return normalizarOpenLibrary(isbn, data, details, obra)
 }
