@@ -27,6 +27,7 @@ const usuarioDeDB = (fila) => ({
   contrasena: fila.contrasena,
   fecharegistro: fila.fecha_registro,
   rol: ROL_DB_A_APP[fila.rol] ?? fila.rol,
+  activo: fila.activo === 1 ? "ACTIVO" : "INACTIVO",
   organizacionId: fila.id_organizacion,
 });
 
@@ -91,6 +92,11 @@ export async function listarUsuariosPorOrganizacion(idOrganizacion) {
   const [filas] = await pool.query('SELECT * FROM usuarios WHERE id_organizacion = ?', [
     idOrganizacion,
   ]);
+  return filas.map(usuarioDeDB);
+}
+
+export async function listarUsuariosTodasOrganizaciones(idOrganizacion) {
+  const [filas] = await pool.query('SELECT * FROM usuarios');
   return filas.map(usuarioDeDB);
 }
 

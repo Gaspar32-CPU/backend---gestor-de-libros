@@ -26,6 +26,7 @@ import {
   actualizarPlan,
   eliminarPlan,
   buscarDatosOrganizacionPorId,
+  listarUsuariosTodasOrganizaciones,
 } from './repos.js';
 
 import isbnRoutes from './routes/isbn.routes.js';
@@ -202,7 +203,7 @@ app.delete('/api/planes/:id', verificarToken, verificarSuperAdmin, async (req, r
 
 // GET /api/admin/usuarios - Listar usuarios de todas las organizaciones (super-admin)
 app.get('/api/admin/usuarios', verificarToken, verificarSuperAdmin, async (req, res) => {
-  res.json(await listarUsuarios());
+  res.json(await listarUsuariosTodasOrganizaciones());
 });
 
 /* ============================================================
@@ -843,11 +844,12 @@ app.get('/api/prestamos/mis-prestamos', verificarToken, async (req, res, next) =
     const { estado } = req.query;
 
     let sql = `
-      SELECT p.id, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+      SELECT p.id, p.id_usuario, u.nombre AS nombre_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
             p.extensiones_realizadas, p.lugar_retiro, p.estado,
             l.titulo, l.autor, l.portada, c.max_extensiones
       FROM prestamos p
       JOIN libros l ON l.id = p.id_libro
+      JOIN usuarios u ON u.id = p.id_usuario
       LEFT JOIN configuraciones c ON c.id_organizacion = p.id_organizacion
       WHERE 1 = 1`;
     const params = [];
@@ -1164,11 +1166,12 @@ app.patch('/api/prestamos/:id/devolver', verificarToken, async (req, res, next) 
       );
 
       const [[prestamoActualizado]] = await pool.query(
-        `SELECT p.id, p.id_libro, p.id_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+        `SELECT p.id, p.id_libro, p.id_usuario, u.nombre AS nombre_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
                 p.extensiones_realizadas, p.lugar_retiro, p.estado,
                 l.titulo, l.autor, l.portada
         FROM prestamos p
         JOIN libros l ON l.id = p.id_libro
+        JOIN usuarios u ON u.nombre = p.id_usuario
         WHERE p.id = ? AND p.id_organizacion = ?`,
         [prestamoId, organizacionId]
       );
