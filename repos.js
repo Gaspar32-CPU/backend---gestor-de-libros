@@ -27,6 +27,7 @@ const usuarioDeDB = (fila) => ({
   contrasena: fila.contrasena,
   fecharegistro: fila.fecha_registro,
   rol: ROL_DB_A_APP[fila.rol] ?? fila.rol,
+  activo: fila.activo === 1 ? "ACTIVO" : "INACTIVO",
   organizacionId: fila.id_organizacion,
 });
 
