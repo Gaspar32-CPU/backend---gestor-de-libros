@@ -45,12 +45,10 @@ function verificarSuperAdmin(req, res, next) {
     return res.status(401).json({ success: false, message: 'No autenticado' })
   }
   if (req.usuario.rol !== 'super-admin') {
-    return res
-      .status(403)
-      .json({
-        success: false,
-        message: 'No tenés permisos de super-administrador',
-      })
+    return res.status(403).json({
+      success: false,
+      message: 'No tenés permisos de super-administrador',
+    })
   }
   next()
 }
