@@ -341,7 +341,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   if (usuarioPendiente) {
-    const msDesdeUltimoIntento = Date.now() - new Date(usuarioPendiente.fecharegistro).getTime();
+    const msDesdeUltimoIntento = Date.now() - new Date(usuarioPendiente.fecha_registro).getTime();
     if (msDesdeUltimoIntento < COOLDOWN_REGISTRO_PENDIENTE_MS) {
       return res.status(429).json({
         code: 'DEMASIADOS_INTENTOS',
