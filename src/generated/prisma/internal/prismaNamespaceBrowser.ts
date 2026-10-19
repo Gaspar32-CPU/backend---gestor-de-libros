@@ -111,6 +111,7 @@ export const UsuarioScalarFieldEnum = {
   id_organizacion: 'id_organizacion',
   ci: 'ci',
   nombre: 'nombre',
+  apellido: 'apellido',
   email: 'email',
   telefono: 'telefono',
   contrasena: 'contrasena',
@@ -298,6 +299,7 @@ export type OrganizacionOrderByRelevanceFieldEnum = (typeof OrganizacionOrderByR
 export const UsuarioOrderByRelevanceFieldEnum = {
   ci: 'ci',
   nombre: 'nombre',
+  apellido: 'apellido',
   email: 'email',
   telefono: 'telefono',
   contrasena: 'contrasena'

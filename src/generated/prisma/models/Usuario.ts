@@ -41,6 +41,7 @@ export type UsuarioMinAggregateOutputType = {
   id_organizacion: number | null
   ci: string | null
   nombre: string | null
+  apellido: string | null
   email: string | null
   telefono: string | null
   contrasena: string | null
@@ -55,6 +56,7 @@ export type UsuarioMaxAggregateOutputType = {
   id_organizacion: number | null
   ci: string | null
   nombre: string | null
+  apellido: string | null
   email: string | null
   telefono: string | null
   contrasena: string | null
@@ -69,6 +71,7 @@ export type UsuarioCountAggregateOutputType = {
   id_organizacion: number
   ci: number
   nombre: number
+  apellido: number
   email: number
   telefono: number
   contrasena: number
@@ -95,6 +98,7 @@ export type UsuarioMinAggregateInputType = {
   id_organizacion?: true
   ci?: true
   nombre?: true
+  apellido?: true
   email?: true
   telefono?: true
   contrasena?: true
@@ -109,6 +113,7 @@ export type UsuarioMaxAggregateInputType = {
   id_organizacion?: true
   ci?: true
   nombre?: true
+  apellido?: true
   email?: true
   telefono?: true
   contrasena?: true
@@ -123,6 +128,7 @@ export type UsuarioCountAggregateInputType = {
   id_organizacion?: true
   ci?: true
   nombre?: true
+  apellido?: true
   email?: true
   telefono?: true
   contrasena?: true
@@ -224,6 +230,7 @@ export type UsuarioGroupByOutputType = {
   id_organizacion: number | null
   ci: string | null
   nombre: string
+  apellido: string | null
   email: string
   telefono: string
   contrasena: string | null
@@ -261,6 +268,7 @@ export type UsuarioWhereInput = {
   id_organizacion?: Prisma.IntNullableFilter<"Usuario"> | number | null
   ci?: Prisma.StringNullableFilter<"Usuario"> | string | null
   nombre?: Prisma.StringFilter<"Usuario"> | string
+  apellido?: Prisma.StringNullableFilter<"Usuario"> | string | null
   email?: Prisma.StringFilter<"Usuario"> | string
   telefono?: Prisma.StringFilter<"Usuario"> | string
   contrasena?: Prisma.StringNullableFilter<"Usuario"> | string | null
@@ -281,6 +289,7 @@ export type UsuarioOrderByWithRelationInput = {
   id_organizacion?: Prisma.SortOrderInput | Prisma.SortOrder
   ci?: Prisma.SortOrderInput | Prisma.SortOrder
   nombre?: Prisma.SortOrder
+  apellido?: Prisma.SortOrderInput | Prisma.SortOrder
   email?: Prisma.SortOrder
   telefono?: Prisma.SortOrder
   contrasena?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -308,6 +317,7 @@ export type UsuarioWhereUniqueInput = Prisma.AtLeast<{
   id_organizacion?: Prisma.IntNullableFilter<"Usuario"> | number | null
   ci?: Prisma.StringNullableFilter<"Usuario"> | string | null
   nombre?: Prisma.StringFilter<"Usuario"> | string
+  apellido?: Prisma.StringNullableFilter<"Usuario"> | string | null
   telefono?: Prisma.StringFilter<"Usuario"> | string
   contrasena?: Prisma.StringNullableFilter<"Usuario"> | string | null
   rol?: Prisma.EnumRolFilter<"Usuario"> | $Enums.Rol
@@ -327,6 +337,7 @@ export type UsuarioOrderByWithAggregationInput = {
   id_organizacion?: Prisma.SortOrderInput | Prisma.SortOrder
   ci?: Prisma.SortOrderInput | Prisma.SortOrder
   nombre?: Prisma.SortOrder
+  apellido?: Prisma.SortOrderInput | Prisma.SortOrder
   email?: Prisma.SortOrder
   telefono?: Prisma.SortOrder
   contrasena?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -349,6 +360,7 @@ export type UsuarioScalarWhereWithAggregatesInput = {
   id_organizacion?: Prisma.IntNullableWithAggregatesFilter<"Usuario"> | number | null
   ci?: Prisma.StringNullableWithAggregatesFilter<"Usuario"> | string | null
   nombre?: Prisma.StringWithAggregatesFilter<"Usuario"> | string
+  apellido?: Prisma.StringNullableWithAggregatesFilter<"Usuario"> | string | null
   email?: Prisma.StringWithAggregatesFilter<"Usuario"> | string
   telefono?: Prisma.StringWithAggregatesFilter<"Usuario"> | string
   contrasena?: Prisma.StringNullableWithAggregatesFilter<"Usuario"> | string | null
@@ -361,6 +373,7 @@ export type UsuarioScalarWhereWithAggregatesInput = {
 export type UsuarioCreateInput = {
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -381,6 +394,7 @@ export type UsuarioUncheckedCreateInput = {
   id_organizacion?: number | null
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -398,6 +412,7 @@ export type UsuarioUncheckedCreateInput = {
 export type UsuarioUpdateInput = {
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -418,6 +433,7 @@ export type UsuarioUncheckedUpdateInput = {
   id_organizacion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -437,6 +453,7 @@ export type UsuarioCreateManyInput = {
   id_organizacion?: number | null
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -449,6 +466,7 @@ export type UsuarioCreateManyInput = {
 export type UsuarioUpdateManyMutationInput = {
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -463,6 +481,7 @@ export type UsuarioUncheckedUpdateManyInput = {
   id_organizacion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -503,6 +522,7 @@ export type UsuarioCountOrderByAggregateInput = {
   id_organizacion?: Prisma.SortOrder
   ci?: Prisma.SortOrder
   nombre?: Prisma.SortOrder
+  apellido?: Prisma.SortOrder
   email?: Prisma.SortOrder
   telefono?: Prisma.SortOrder
   contrasena?: Prisma.SortOrder
@@ -522,6 +542,7 @@ export type UsuarioMaxOrderByAggregateInput = {
   id_organizacion?: Prisma.SortOrder
   ci?: Prisma.SortOrder
   nombre?: Prisma.SortOrder
+  apellido?: Prisma.SortOrder
   email?: Prisma.SortOrder
   telefono?: Prisma.SortOrder
   contrasena?: Prisma.SortOrder
@@ -536,6 +557,7 @@ export type UsuarioMinOrderByAggregateInput = {
   id_organizacion?: Prisma.SortOrder
   ci?: Prisma.SortOrder
   nombre?: Prisma.SortOrder
+  apellido?: Prisma.SortOrder
   email?: Prisma.SortOrder
   telefono?: Prisma.SortOrder
   contrasena?: Prisma.SortOrder
@@ -682,6 +704,7 @@ export type UsuarioUpdateOneRequiredWithoutReservasNestedInput = {
 export type UsuarioCreateWithoutOrganizacionesInput = {
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -700,6 +723,7 @@ export type UsuarioUncheckedCreateWithoutOrganizacionesInput = {
   id?: number
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -748,6 +772,7 @@ export type UsuarioScalarWhereInput = {
   id_organizacion?: Prisma.IntNullableFilter<"Usuario"> | number | null
   ci?: Prisma.StringNullableFilter<"Usuario"> | string | null
   nombre?: Prisma.StringFilter<"Usuario"> | string
+  apellido?: Prisma.StringNullableFilter<"Usuario"> | string | null
   email?: Prisma.StringFilter<"Usuario"> | string
   telefono?: Prisma.StringFilter<"Usuario"> | string
   contrasena?: Prisma.StringNullableFilter<"Usuario"> | string | null
@@ -760,6 +785,7 @@ export type UsuarioScalarWhereInput = {
 export type UsuarioCreateWithoutPrestamosInput = {
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -779,6 +805,7 @@ export type UsuarioUncheckedCreateWithoutPrestamosInput = {
   id_organizacion?: number | null
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -811,6 +838,7 @@ export type UsuarioUpdateToOneWithWhereWithoutPrestamosInput = {
 export type UsuarioUpdateWithoutPrestamosInput = {
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -830,6 +858,7 @@ export type UsuarioUncheckedUpdateWithoutPrestamosInput = {
   id_organizacion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -846,6 +875,7 @@ export type UsuarioUncheckedUpdateWithoutPrestamosInput = {
 export type UsuarioCreateWithoutNotificacionesInput = {
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -865,6 +895,7 @@ export type UsuarioUncheckedCreateWithoutNotificacionesInput = {
   id_organizacion?: number | null
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -897,6 +928,7 @@ export type UsuarioUpdateToOneWithWhereWithoutNotificacionesInput = {
 export type UsuarioUpdateWithoutNotificacionesInput = {
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -916,6 +948,7 @@ export type UsuarioUncheckedUpdateWithoutNotificacionesInput = {
   id_organizacion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -932,6 +965,7 @@ export type UsuarioUncheckedUpdateWithoutNotificacionesInput = {
 export type UsuarioCreateWithoutReportes_problemasInput = {
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -951,6 +985,7 @@ export type UsuarioUncheckedCreateWithoutReportes_problemasInput = {
   id_organizacion?: number | null
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -983,6 +1018,7 @@ export type UsuarioUpdateToOneWithWhereWithoutReportes_problemasInput = {
 export type UsuarioUpdateWithoutReportes_problemasInput = {
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1002,6 +1038,7 @@ export type UsuarioUncheckedUpdateWithoutReportes_problemasInput = {
   id_organizacion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1018,6 +1055,7 @@ export type UsuarioUncheckedUpdateWithoutReportes_problemasInput = {
 export type UsuarioCreateWithoutResenasInput = {
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -1037,6 +1075,7 @@ export type UsuarioUncheckedCreateWithoutResenasInput = {
   id_organizacion?: number | null
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -1069,6 +1108,7 @@ export type UsuarioUpdateToOneWithWhereWithoutResenasInput = {
 export type UsuarioUpdateWithoutResenasInput = {
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1088,6 +1128,7 @@ export type UsuarioUncheckedUpdateWithoutResenasInput = {
   id_organizacion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1104,6 +1145,7 @@ export type UsuarioUncheckedUpdateWithoutResenasInput = {
 export type UsuarioCreateWithoutReservasInput = {
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -1123,6 +1165,7 @@ export type UsuarioUncheckedCreateWithoutReservasInput = {
   id_organizacion?: number | null
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -1155,6 +1198,7 @@ export type UsuarioUpdateToOneWithWhereWithoutReservasInput = {
 export type UsuarioUpdateWithoutReservasInput = {
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1174,6 +1218,7 @@ export type UsuarioUncheckedUpdateWithoutReservasInput = {
   id_organizacion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1191,6 +1236,7 @@ export type UsuarioCreateManyOrganizacionesInput = {
   id?: number
   ci?: string | null
   nombre: string
+  apellido?: string | null
   email: string
   telefono: string
   contrasena?: string | null
@@ -1203,6 +1249,7 @@ export type UsuarioCreateManyOrganizacionesInput = {
 export type UsuarioUpdateWithoutOrganizacionesInput = {
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1221,6 +1268,7 @@ export type UsuarioUncheckedUpdateWithoutOrganizacionesInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1239,6 +1287,7 @@ export type UsuarioUncheckedUpdateManyWithoutOrganizacionesInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   ci?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   nombre?: Prisma.StringFieldUpdateOperationsInput | string
+  apellido?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   email?: Prisma.StringFieldUpdateOperationsInput | string
   telefono?: Prisma.StringFieldUpdateOperationsInput | string
   contrasena?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1320,6 +1369,7 @@ export type UsuarioSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   id_organizacion?: boolean
   ci?: boolean
   nombre?: boolean
+  apellido?: boolean
   email?: boolean
   telefono?: boolean
   contrasena?: boolean
@@ -1343,6 +1393,7 @@ export type UsuarioSelectScalar = {
   id_organizacion?: boolean
   ci?: boolean
   nombre?: boolean
+  apellido?: boolean
   email?: boolean
   telefono?: boolean
   contrasena?: boolean
@@ -1352,7 +1403,7 @@ export type UsuarioSelectScalar = {
   fecha_registro?: boolean
 }
 
-export type UsuarioOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "id_organizacion" | "ci" | "nombre" | "email" | "telefono" | "contrasena" | "rol" | "activo" | "congelado_hasta" | "fecha_registro", ExtArgs["result"]["usuario"]>
+export type UsuarioOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "id_organizacion" | "ci" | "nombre" | "apellido" | "email" | "telefono" | "contrasena" | "rol" | "activo" | "congelado_hasta" | "fecha_registro", ExtArgs["result"]["usuario"]>
 export type UsuarioInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   notificaciones?: boolean | Prisma.Usuario$notificacionesArgs<ExtArgs>
   prestamos?: boolean | Prisma.Usuario$prestamosArgs<ExtArgs>
@@ -1378,6 +1429,7 @@ export type $UsuarioPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     id_organizacion: number | null
     ci: string | null
     nombre: string
+    apellido: string | null
     email: string
     telefono: string
     contrasena: string | null
@@ -1764,6 +1816,7 @@ export interface UsuarioFieldRefs {
   readonly id_organizacion: Prisma.FieldRef<"Usuario", 'Int'>
   readonly ci: Prisma.FieldRef<"Usuario", 'String'>
   readonly nombre: Prisma.FieldRef<"Usuario", 'String'>
+  readonly apellido: Prisma.FieldRef<"Usuario", 'String'>
   readonly email: Prisma.FieldRef<"Usuario", 'String'>
   readonly telefono: Prisma.FieldRef<"Usuario", 'String'>
   readonly contrasena: Prisma.FieldRef<"Usuario", 'String'>
