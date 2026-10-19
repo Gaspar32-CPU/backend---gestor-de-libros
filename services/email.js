@@ -5,17 +5,23 @@
 // salientes (587/465/2525) para evitar que se usen como relay de spam, pero
 // dejan pasar HTTPS normal. La API de Brevo hace lo mismo que el SMTP
 // (mismo free tier, 300 emails/día) viajando por el puerto 443.
-const BREVO_URL = 'https://api.brevo.com/v3/smtp/email';
+const BREVO_URL = 'https://api.brevo.com/v3/smtp/email'
 
 // Se valida al cargar el módulo (o sea, al arrancar el servidor) y no en
 // cada envío: si falta una variable es mejor enterarse en el arranque que
 // descubrirlo cuando un préstamo no avisó a nadie.
-const variablesRequeridas = ['BREVO_API_KEY', 'BREVO_FROM_EMAIL', 'BREVO_FROM_NAME'];
-const variablesFaltantes = variablesRequeridas.filter((nombre) => !process.env[nombre]);
+const variablesRequeridas = [
+  'BREVO_API_KEY',
+  'BREVO_FROM_EMAIL',
+  'BREVO_FROM_NAME',
+]
+const variablesFaltantes = variablesRequeridas.filter(
+  (nombre) => !process.env[nombre],
+)
 if (variablesFaltantes.length > 0) {
   throw new Error(
-    `Faltan variables de entorno para el envío de emails: ${variablesFaltantes.join(', ')} (ver .env.example)`
-  );
+    `Faltan variables de entorno para el envío de emails: ${variablesFaltantes.join(', ')} (ver .env.example)`,
+  )
 }
 
 /**
@@ -38,21 +44,24 @@ export async function enviarEmail({ para, asunto, html }) {
         Accept: 'application/json',
       },
       body: JSON.stringify({
-        sender: { email: process.env.BREVO_FROM_EMAIL, name: process.env.BREVO_FROM_NAME },
+        sender: {
+          email: process.env.BREVO_FROM_EMAIL,
+          name: process.env.BREVO_FROM_NAME,
+        },
         to: [{ email: para }],
         subject: asunto,
         htmlContent: html,
       }),
-    });
+    })
 
     if (!respuesta.ok) {
-      const detalle = await respuesta.text();
-      throw new Error(`${respuesta.status} ${detalle}`);
+      const detalle = await respuesta.text()
+      throw new Error(`${respuesta.status} ${detalle}`)
     }
 
-    return { ok: true };
+    return { ok: true }
   } catch (err) {
-    console.error('[email] no se pudo enviar a', para, '->', err.message);
-    return { ok: false, error: err.message };
+    console.error('[email] no se pudo enviar a', para, '->', err.message)
+    return { ok: false, error: err.message }
   }
 }

@@ -29,25 +29,25 @@ Debe responder `{"ok":true,"db":"conectada","libros":5}`.
 
 ### Comandos frecuentes
 
-| Acción | Comando |
-|---|---|
-| Levantar la base | `docker compose up -d` |
-| Apagar (conserva datos) | `docker compose stop` |
-| **Resetear** (borra datos y recrea el esquema) | `docker compose down -v && docker compose up -d` |
-| Ver logs de MySQL | `docker compose logs -f db` |
-| Consola MySQL | `docker exec -it biblioteca_db mysql -u biblioteca -pbiblioteca biblioteca` |
-| Recargar solo los datos de prueba | `docker exec -i biblioteca_db mysql -u biblioteca -pbiblioteca biblioteca < db/init/02_seed.sql` |
+| Acción                                         | Comando                                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Levantar la base                               | `docker compose up -d`                                                                           |
+| Apagar (conserva datos)                        | `docker compose stop`                                                                            |
+| **Resetear** (borra datos y recrea el esquema) | `docker compose down -v && docker compose up -d`                                                 |
+| Ver logs de MySQL                              | `docker compose logs -f db`                                                                      |
+| Consola MySQL                                  | `docker exec -it biblioteca_db mysql -u biblioteca -pbiblioteca biblioteca`                      |
+| Recargar solo los datos de prueba              | `docker exec -i biblioteca_db mysql -u biblioteca -pbiblioteca biblioteca < db/init/02_seed.sql` |
 
 ### Panel web (Adminer)
 
 http://localhost:8080
 
-| Campo | Valor |
-|---|---|
-| Motor | MySQL |
-| Servidor | `db` |
-| Usuario | `biblioteca` |
-| Contraseña | `biblioteca` |
+| Campo         | Valor        |
+| ------------- | ------------ |
+| Motor         | MySQL        |
+| Servidor      | `db`         |
+| Usuario       | `biblioteca` |
+| Contraseña    | `biblioteca` |
 | Base de datos | `biblioteca` |
 
 > El servidor es `db`, no `localhost`: Adminer corre dentro de la red de Docker.
@@ -128,12 +128,12 @@ MYSQL="/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe"   # en Linux/Mac: 
 
 Contraseña de todos: `password123`
 
-| Email | Rol | Organización |
-|---|---|---|
-| `super@plataforma.com` | admin_plataforma | — |
-| `admin@liceodemo1.edu.uy` | admin_organizacion | Liceo Demo Uno |
-| `lectora@liceodemo1.edu.uy` | lector | Liceo Demo Uno |
-| `admin@liceodemo2.edu.uy` | admin_organizacion | Liceo Demo Dos |
+| Email                       | Rol                | Organización   |
+| --------------------------- | ------------------ | -------------- |
+| `super@plataforma.com`      | admin_plataforma   | —              |
+| `admin@liceodemo1.edu.uy`   | admin_organizacion | Liceo Demo Uno |
+| `lectora@liceodemo1.edu.uy` | lector             | Liceo Demo Uno |
+| `admin@liceodemo2.edu.uy`   | admin_organizacion | Liceo Demo Dos |
 
 ### Problemas comunes
 

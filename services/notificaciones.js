@@ -4,10 +4,10 @@
 // notificaciones). Cada función arma el mensaje, lo guarda en la tabla
 // notificaciones (para que se vea también dentro del sistema) y dispara
 // el email correspondiente.
-import { pool } from '../db.js';
-import { enviarEmail } from './email.js';
-import { escaparHtml } from './escaparHtml.js';
-import { plantillaEmail } from './plantillaEmail.js';
+import { pool } from '../db.js'
+import { enviarEmail } from './email.js'
+import { escaparHtml } from './escaparHtml.js'
+import { plantillaEmail } from './plantillaEmail.js'
 
 // ---------------------------------------------------------------------------
 // Piezas reutilizables para los avisos de préstamos (nuevo, devuelto,
@@ -18,44 +18,59 @@ import { plantillaEmail } from './plantillaEmail.js';
  * Trae lo que casi todo aviso de préstamo necesita: el título del libro,
  * el usuario que lo pidió y los admins de la organización.
  */
-async function obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganizacion }) {
-  const [
-    [[libro]],
-    [[usuario]],
-    [admins],
-    [[prestamo]]
-  ] = await Promise.all([
+async function obtenerDatosPrestamo({
+  idLibro,
+  idPrestamo,
+  idUsuario,
+  idOrganizacion,
+}) {
+  const [[[libro]], [[usuario]], [admins], [[prestamo]]] = await Promise.all([
     pool.query('SELECT titulo FROM libros WHERE id = ?', [idLibro]),
     pool.query('SELECT nombre, email FROM usuarios WHERE id = ?', [idUsuario]),
-    pool.query("SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion'", [idOrganizacion]),
-    pool.query("SELECT id, fecha_devolucion_esperada, extensiones_realizadas FROM prestamos WHERE id = ? AND id_organizacion = ?", [idPrestamo, idOrganizacion])
-  ]);
+    pool.query(
+      "SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion'",
+      [idOrganizacion],
+    ),
+    pool.query(
+      'SELECT id, fecha_devolucion_esperada, extensiones_realizadas FROM prestamos WHERE id = ? AND id_organizacion = ?',
+      [idPrestamo, idOrganizacion],
+    ),
+  ])
 
   return {
     tituloLibro: libro?.titulo ?? 'un libro',
     usuario,
     admins,
     prestamo,
-  };
+  }
 }
 
 /**
  * Guarda la notificación en la tabla (estado 'pendiente') y devuelve el
  * envío listo para pasarle a procesarEnvios.
  */
-async function crearEnvio({ idUsuario, idPrestamo, tipo, mensaje, para, asunto, titulo, html }) {
+async function crearEnvio({
+  idUsuario,
+  idPrestamo,
+  tipo,
+  mensaje,
+  para,
+  asunto,
+  titulo,
+  html,
+}) {
   const [resultado] = await pool.query(
     `INSERT INTO notificaciones (id_usuario, id_prestamo, tipo, canal, mensaje, estado)
      VALUES (?, ?, ?, 'email', ?, 'pendiente')`,
-    [idUsuario, idPrestamo, tipo, mensaje]
-  );
+    [idUsuario, idPrestamo, tipo, mensaje],
+  )
 
   return {
     idNotificacion: resultado.insertId,
     para,
     asunto,
     html: html ?? plantillaEmail({ titulo, cuerpo: escaparHtml(mensaje) }),
-  };
+  }
 }
 
 /**
@@ -64,30 +79,34 @@ async function crearEnvio({ idUsuario, idPrestamo, tipo, mensaje, para, asunto, 
  */
 async function procesarEnvios(envios) {
   const resultados = await Promise.allSettled(
-    envios.map((envio) => enviarEmail({ para: envio.para, asunto: envio.asunto, html: envio.html }))
-  );
+    envios.map((envio) =>
+      enviarEmail({ para: envio.para, asunto: envio.asunto, html: envio.html }),
+    ),
+  )
 
   await Promise.all(
     resultados.map((resultado, i) => {
-      const { idNotificacion } = envios[i];
+      const { idNotificacion } = envios[i]
 
       if (resultado.status === 'fulfilled' && resultado.value.ok) {
         return pool.query(
           "UPDATE notificaciones SET estado = 'enviado', enviado_en = NOW() WHERE id = ?",
-          [idNotificacion]
-        );
+          [idNotificacion],
+        )
       }
 
       // enviarEmail no debería rechazar nunca (devuelve { ok: false }),
       // pero por las dudas también se cubre el caso 'rejected'.
       const mensajeError =
-        resultado.status === 'fulfilled' ? resultado.value.error : String(resultado.reason?.message ?? resultado.reason);
+        resultado.status === 'fulfilled'
+          ? resultado.value.error
+          : String(resultado.reason?.message ?? resultado.reason)
       return pool.query(
         "UPDATE notificaciones SET estado = 'error', error = ? WHERE id = ?",
-        [mensajeError, idNotificacion]
-      );
-    })
-  );
+        [mensajeError, idNotificacion],
+      )
+    }),
+  )
 }
 
 /**
@@ -97,100 +116,133 @@ async function procesarEnvios(envios) {
  */
 function procesarEnviosEnSegundoPlano(envios, idPrestamo) {
   void procesarEnvios(envios).catch((err) => {
-    console.error('[notificaciones] error al procesar los envíos del préstamo', idPrestamo, '->', err);
-  });
+    console.error(
+      '[notificaciones] error al procesar los envíos del préstamo',
+      idPrestamo,
+      '->',
+      err,
+    )
+  })
 }
 
 /**
  * Se dispara al crear un préstamo: avisa a los admins de la organización
  * de que un usuario pidió un libro, para que lo tengan pendiente de entrega.
  */
-export async function notificarExtensionPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
-  const { tituloLibro, usuario, admins, prestamo } = await obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganizacion });
+export async function notificarExtensionPrestamo({
+  idPrestamo,
+  idLibro,
+  idUsuario,
+  idOrganizacion,
+}) {
+  const { tituloLibro, usuario, admins, prestamo } = await obtenerDatosPrestamo(
+    { idLibro, idPrestamo, idUsuario, idOrganizacion },
+  )
 
-  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó la extensión del préstamo de "${tituloLibro}" y la fecha de devolucion es el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible'}.`;
-  const mensajeParaSolicitante = `Registramos tu solicitud de extensión del préstamo de "${tituloLibro}". Se extendió hasta el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible consulta con el administrador de tu institución'}.`;
+  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó la extensión del préstamo de "${tituloLibro}" y la fecha de devolucion es el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible'}.`
+  const mensajeParaSolicitante = `Registramos tu solicitud de extensión del préstamo de "${tituloLibro}". Se extendió hasta el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible consulta con el administrador de tu institución'}.`
 
-  const envios = [];
+  const envios = []
 
   for (const admin of admins) {
-    envios.push(await crearEnvio({
-      idUsuario: admin.id,
-      idPrestamo,
-      tipo: 'extension_prestamo',
-      mensaje: mensajeParaAdmin,
-      para: admin.email,
-      asunto: 'Extensión de préstamo',
-      titulo: 'Extensión de préstamo',
-    }));
+    envios.push(
+      await crearEnvio({
+        idUsuario: admin.id,
+        idPrestamo,
+        tipo: 'extension_prestamo',
+        mensaje: mensajeParaAdmin,
+        para: admin.email,
+        asunto: 'Extensión de préstamo',
+        titulo: 'Extensión de préstamo',
+      }),
+    )
   }
 
   if (usuario?.email) {
-    envios.push(await crearEnvio({
-      idUsuario,
-      idPrestamo,
-      tipo: 'extension_prestamo',
-      mensaje: mensajeParaSolicitante,
-      para: usuario.email,
-      asunto: 'Extensión de préstamo',
-      titulo: 'Extensión de préstamo',
-    }));
+    envios.push(
+      await crearEnvio({
+        idUsuario,
+        idPrestamo,
+        tipo: 'extension_prestamo',
+        mensaje: mensajeParaSolicitante,
+        para: usuario.email,
+        asunto: 'Extensión de préstamo',
+        titulo: 'Extensión de préstamo',
+      }),
+    )
   }
 
-  procesarEnviosEnSegundoPlano(envios, idPrestamo);
+  procesarEnviosEnSegundoPlano(envios, idPrestamo)
 }
 
-export async function notificarRetiroLibro({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
+export async function notificarRetiroLibro({
+  idPrestamo,
+  idLibro,
+  idUsuario,
+  idOrganizacion,
+}) {
   const { tituloLibro, usuario, prestamo } = await obtenerDatosPrestamo({
     idLibro,
     idPrestamo,
     idUsuario,
     idOrganizacion,
-  });
+  })
 
   const fechaLimite = prestamo?.fecha_devolucion_esperada
     ? new Date(prestamo.fecha_devolucion_esperada).toLocaleDateString()
-    : null;
+    : null
 
   const textoFecha = fechaLimite
     ? `Recordá devolverlo antes del ${fechaLimite}.`
-    : 'No pudimos obtener la fecha de devolución, consultá con el administrador de tu institución.';
+    : 'No pudimos obtener la fecha de devolución, consultá con el administrador de tu institución.'
 
-  const mensajeParaSolicitante = `Ya registramos el retiro de "${tituloLibro}". ${textoFecha}`;
+  const mensajeParaSolicitante = `Ya registramos el retiro de "${tituloLibro}". ${textoFecha}`
 
-  const tituloEscapado = escaparHtml(tituloLibro);
+  const tituloEscapado = escaparHtml(tituloLibro)
   const cuerpoHtml = `
     Un/a administrador/a de tu organización confirmó el retiro de "${tituloEscapado}".
     <br /><br />
     ${escaparHtml(textoFecha)}
     <br /><br />
     Esperamos que lo disfrutes y no olvides dejar una reseña al devolverlo.
-  `;
+  `
 
-  const envios = [];
+  const envios = []
 
   if (usuario?.email) {
-    envios.push(await crearEnvio({
-      idUsuario,
-      idPrestamo,
-      tipo: 'retiro_libro',
-      mensaje: mensajeParaSolicitante,
-      html: plantillaEmail({ titulo: 'Retiro de libro', cuerpo: cuerpoHtml }),
-      para: usuario.email,
-      asunto: 'Retiro de libro registrado',
-    }));
+    envios.push(
+      await crearEnvio({
+        idUsuario,
+        idPrestamo,
+        tipo: 'retiro_libro',
+        mensaje: mensajeParaSolicitante,
+        html: plantillaEmail({ titulo: 'Retiro de libro', cuerpo: cuerpoHtml }),
+        para: usuario.email,
+        asunto: 'Retiro de libro registrado',
+      }),
+    )
   }
 
-  procesarEnviosEnSegundoPlano(envios, idPrestamo);
+  procesarEnviosEnSegundoPlano(envios, idPrestamo)
 }
 
-export async function notificarDevolucionPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
-  const { tituloLibro, usuario } = await obtenerDatosPrestamo({ idLibro, idPrestamo, idUsuario, idOrganizacion });
-  const link = `${process.env.FRONTEND_URL}/libro/${idLibro}`;
+export async function notificarDevolucionPrestamo({
+  idPrestamo,
+  idLibro,
+  idUsuario,
+  idOrganizacion,
+}) {
+  const { tituloLibro, usuario } = await obtenerDatosPrestamo({
+    idLibro,
+    idPrestamo,
+    idUsuario,
+    idOrganizacion,
+  })
+  const link = `${process.env.FRONTEND_URL}/libro/${idLibro}`
 
-  const mensajeParaSolicitante = `Un/a administrador de tu organización confirmó la devolución de "${tituloLibro}". Ingresá a ${link} para dejar tu reseña.`;
+  const mensajeParaSolicitante = `Un/a administrador de tu organización confirmó la devolución de "${tituloLibro}". Ingresá a ${link} para dejar tu reseña.`
 
-  const tituloEscapado = escaparHtml(tituloLibro);
+  const tituloEscapado = escaparHtml(tituloLibro)
   const cuerpoHtml = `
     Un/a administrador de tu organización confirmó la devolución de "${tituloEscapado}".
     <br /><br />
@@ -200,65 +252,84 @@ export async function notificarDevolucionPrestamo({ idPrestamo, idLibro, idUsuar
     <br /><br />
     Si el botón no funciona, copiá este link en el navegador:<br />
     <span style="color:#8595A6; font-size:13px;">${link}</span>
-  `;
+  `
 
-  const envios = [];
+  const envios = []
 
   if (usuario?.email) {
-    envios.push(await crearEnvio({
-      idUsuario,
-      idPrestamo,
-      tipo: 'devolucion_libro',
-      mensaje: mensajeParaSolicitante,
-      html: plantillaEmail({ titulo: 'Devolucion de libro', cuerpo: cuerpoHtml }),
-      para: usuario.email,
-      asunto: 'Devolucion de libro',
-    }));
+    envios.push(
+      await crearEnvio({
+        idUsuario,
+        idPrestamo,
+        tipo: 'devolucion_libro',
+        mensaje: mensajeParaSolicitante,
+        html: plantillaEmail({
+          titulo: 'Devolucion de libro',
+          cuerpo: cuerpoHtml,
+        }),
+        para: usuario.email,
+        asunto: 'Devolucion de libro',
+      }),
+    )
   }
 
-  procesarEnviosEnSegundoPlano(envios, idPrestamo);
+  procesarEnviosEnSegundoPlano(envios, idPrestamo)
 }
 
 /**
  * Se dispara al crear un préstamo: avisa a los admins de la organización
  * de que un usuario pidió un libro, para que lo tengan pendiente de entrega.
  */
-export async function notificarNuevoPrestamo({ idPrestamo, idLibro, idUsuario, idOrganizacion }) {
-  const { tituloLibro, usuario, admins } = await obtenerDatosPrestamo({ idLibro, idUsuario, idPrestamo, idOrganizacion });
+export async function notificarNuevoPrestamo({
+  idPrestamo,
+  idLibro,
+  idUsuario,
+  idOrganizacion,
+}) {
+  const { tituloLibro, usuario, admins } = await obtenerDatosPrestamo({
+    idLibro,
+    idUsuario,
+    idPrestamo,
+    idOrganizacion,
+  })
 
-  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó el préstamo de "${tituloLibro}".`;
-  const mensajeParaSolicitante = `Registramos tu solicitud de préstamo de "${tituloLibro}". Te avisamos por acá cuando esté listo para retirar.`;
+  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó el préstamo de "${tituloLibro}".`
+  const mensajeParaSolicitante = `Registramos tu solicitud de préstamo de "${tituloLibro}". Te avisamos por acá cuando esté listo para retirar.`
 
-  const envios = [];
+  const envios = []
 
   for (const admin of admins) {
-    envios.push(await crearEnvio({
-      idUsuario: admin.id,
-      idPrestamo,
-      tipo: 'nuevo_prestamo',
-      mensaje: mensajeParaAdmin,
-      para: admin.email,
-      asunto: 'Nuevo préstamo solicitado',
-      titulo: 'Nuevo préstamo solicitado',
-    }));
+    envios.push(
+      await crearEnvio({
+        idUsuario: admin.id,
+        idPrestamo,
+        tipo: 'nuevo_prestamo',
+        mensaje: mensajeParaAdmin,
+        para: admin.email,
+        asunto: 'Nuevo préstamo solicitado',
+        titulo: 'Nuevo préstamo solicitado',
+      }),
+    )
   }
 
   // El solicitante también es parte del RF de notificaciones ("al generar
   // un préstamo"): además del aviso al admin para que prepare el libro,
   // el usuario recibe la confirmación de que su pedido quedó registrado.
   if (usuario?.email) {
-    envios.push(await crearEnvio({
-      idUsuario,
-      idPrestamo,
-      tipo: 'nuevo_prestamo',
-      mensaje: mensajeParaSolicitante,
-      para: usuario.email,
-      asunto: 'Confirmamos tu solicitud de préstamo',
-      titulo: 'Confirmamos tu solicitud',
-    }));
+    envios.push(
+      await crearEnvio({
+        idUsuario,
+        idPrestamo,
+        tipo: 'nuevo_prestamo',
+        mensaje: mensajeParaSolicitante,
+        para: usuario.email,
+        asunto: 'Confirmamos tu solicitud de préstamo',
+        titulo: 'Confirmamos tu solicitud',
+      }),
+    )
   }
 
-  procesarEnviosEnSegundoPlano(envios, idPrestamo);
+  procesarEnviosEnSegundoPlano(envios, idPrestamo)
 }
 
 /**
@@ -275,7 +346,7 @@ export async function notificarNuevoPrestamo({ idPrestamo, idLibro, idUsuario, i
  * decisión de diseño nueva y no una que ya esté tomada.
  */
 export async function notificarInvitacion({ nombre, correo, tokenInvitacion }) {
-  const link = `${process.env.FRONTEND_URL}/crear-contrasena?token=${tokenInvitacion}`;
+  const link = `${process.env.FRONTEND_URL}/crear-contrasena?token=${tokenInvitacion}`
   const cuerpo = `
     Hola ${escaparHtml(nombre)}, te invitaron a Bookly. Hacé clic en el botón para crear tu contraseña y activar tu cuenta.
     <br /><br />
@@ -283,16 +354,18 @@ export async function notificarInvitacion({ nombre, correo, tokenInvitacion }) {
     <br /><br />
     Si el botón no funciona, copiá este link en el navegador:<br />
     <span style="color:#8595A6; font-size:13px;">${link}</span>
-  `;
+  `
 
   const resultado = await enviarEmail({
     para: correo,
     asunto: 'Te invitaron a Bookly',
     html: plantillaEmail({ titulo: 'Creá tu contraseña', cuerpo }),
-  });
+  })
 
   if (!resultado.ok) {
-    throw new Error(`No se pudo enviar el email de invitación: ${resultado.error}`);
+    throw new Error(
+      `No se pudo enviar el email de invitación: ${resultado.error}`,
+    )
   }
 }
 
@@ -309,10 +382,14 @@ export async function notificarInvitacion({ nombre, correo, tokenInvitacion }) {
  * No inserta fila en `notificaciones`: el ENUM `tipo` es para avisos de
  * actividad de biblioteca.
  */
-export async function notificarRegistro({ nombre, correo, tokenCrearContrasena }) {
+export async function notificarRegistro({
+  nombre,
+  correo,
+  tokenCrearContrasena,
+}) {
   // El link lo arma el propio código (FRONTEND_URL + token), no viene del
   // usuario, por eso no se escapa. Va a la misma página que la invitación.
-  const link = `${process.env.FRONTEND_URL}/crear-contrasena?token=${tokenCrearContrasena}`;
+  const link = `${process.env.FRONTEND_URL}/crear-contrasena?token=${tokenCrearContrasena}`
   const cuerpo = `
     Hola ${escaparHtml(nombre)}, gracias por registrarte en Bookly. Hacé clic en el botón para validar tu correo y crear tu contraseña.
     <br /><br />
@@ -320,18 +397,20 @@ export async function notificarRegistro({ nombre, correo, tokenCrearContrasena }
     <br /><br />
     El link vence en 24 horas. Si el botón no funciona, copiá este link en el navegador:<br />
     <span style="color:#8595A6; font-size:13px;">${link}</span>
-  `;
+  `
 
   const resultado = await enviarEmail({
     para: correo,
     asunto: 'Validá tu correo en Bookly',
     html: plantillaEmail({ titulo: 'Validá tu correo', cuerpo }),
-  });
+  })
 
   if (!resultado.ok) {
-    const error = new Error(`No se pudo enviar el email de registro: ${resultado.error}`);
-    error.code = 'EMAIL_NO_ENVIADO';
-    throw error;
+    const error = new Error(
+      `No se pudo enviar el email de registro: ${resultado.error}`,
+    )
+    error.code = 'EMAIL_NO_ENVIADO'
+    throw error
   }
 }
 
@@ -355,22 +434,27 @@ export function notificarInicioSesion({ idUsuario, nombre, correo }) {
       timeZone: 'America/Montevideo',
       dateStyle: 'long',
       timeStyle: 'short',
-    });
+    })
 
     const cuerpo = `
       Hola ${escaparHtml(nombre)}, se inició sesión en tu cuenta de Bookly el ${escaparHtml(fechaHora)}.
       <br /><br />
       Si fuiste vos, no tenés que hacer nada. Si no reconocés este acceso, avisale al administrador de tu organización.
-    `;
+    `
 
     await enviarEmail({
       para: correo,
       asunto: 'Nuevo inicio de sesión',
       html: plantillaEmail({ titulo: 'Nuevo inicio de sesión', cuerpo }),
-    });
+    })
   }
 
   void enviar().catch((err) => {
-    console.error('[notificaciones] error al avisar el inicio de sesión del usuario', idUsuario, '->', err);
-  });
+    console.error(
+      '[notificaciones] error al avisar el inicio de sesión del usuario',
+      idUsuario,
+      '->',
+      err,
+    )
+  })
 }

@@ -7,11 +7,11 @@
 // El & va primero a propósito: si fuera después, convertiría el "&" de
 // las entidades ya generadas ("&lt;" pasaría a "&amp;lt;").
 export function escaparHtml(valor) {
-  if (valor === null || valor === undefined) return '';
+  if (valor === null || valor === undefined) return ''
 
   return String(valor)
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
+    .replaceAll('"', '&quot;')
 }

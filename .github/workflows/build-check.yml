@@ -31,7 +31,7 @@ jobs:
       - name: Instalar dependencias de producción (igual que el deploy real)
         run: npm ci --omit=dev
         env:
-          DATABASE_URL: "mysql://usuario:password@localhost:3306/ci"
+          DATABASE_URL: 'mysql://usuario:password@localhost:3306/ci'
 
       # Paso separado y explícito: si alguien vuelve a mover "prisma" a
       # devDependencies, este --omit=dev no lo instala y esto falla acá,
@@ -39,4 +39,4 @@ jobs:
       - name: Generar Prisma Client
         run: npx prisma generate
         env:
-          DATABASE_URL: "mysql://usuario:password@localhost:3306/ci"
+          DATABASE_URL: 'mysql://usuario:password@localhost:3306/ci'
