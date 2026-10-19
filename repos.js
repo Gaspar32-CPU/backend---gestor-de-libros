@@ -95,6 +95,11 @@ export async function listarUsuariosPorOrganizacion(idOrganizacion) {
   return filas.map(usuarioDeDB);
 }
 
+export async function listarUsuariosTodasOrganizaciones(idOrganizacion) {
+  const [filas] = await pool.query('SELECT * FROM usuarios');
+  return filas.map(usuarioDeDB);
+}
+
 export async function listarUsuarios() {
   const [filas] = await pool.query(`
   SELECT id, id_organizacion, nombre, apellido, ci, email, telefono, rol, CONCAT(nombre, ' ', apellido) as nombreCompleto
