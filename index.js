@@ -989,6 +989,110 @@ app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
   }
 })
 
+app.get('/api/libros/:id/resenas', verificarToken, async (req, res, next) => {
+  const organizacionId = req.usuario.organizacionId
+  const libroId = req.params.id;
+
+  try {
+    const [resenas] = await pool.query(
+      `SELECT r.id, r.id_libro, r.id_organizacion,
+              r.calificacion, r.comentario, r.fecha,
+              u.nombre AS usuario
+       FROM resenas r
+       JOIN usuarios u ON u.id = r.id_usuario
+       WHERE r.id_organizacion = ?
+         AND r.id_libro = ?
+       ORDER BY r.fecha DESC`,
+      [organizacionId, libroId]
+    );
+
+    res.json(resenas)
+  } catch (err) {
+    next(err)
+  }
+})
+
+
+app.post('/api/libros/:id/resenas', verificarToken, async (req, res, next) => {
+  const { id: libroId } = req.params; 
+  const usuarioId = req.usuario.id
+  const organizacionId = req.usuario.organizacionId
+  const {
+    calificacion,
+    comentario
+  } = req.body ?? {}
+
+  if (!comentario || typeof comentario !== 'string' || !comentario.trim()) {
+    return res.status(400).json({
+      error: 'campos_vacios',
+      mensaje: 'El comentario es requerido.',
+    });
+  }
+
+  if(calificacion == null){
+    return res.status(400).json({
+      error: 'campos_vacios',
+      mensaje: 'La calificación es requerida',
+    })
+  }
+
+  if(!Number.isInteger(calificacion) || calificacion > 5 || calificacion < 1){
+    return res.status(400).json({
+      error: 'conflicto',
+      mensaje: 'La calificación debe ser un número del 1 al 5.',
+    })
+  }
+
+
+  if(comentario.trim().length < 100){
+    return res.status(400).json({
+      error: 'conflicto',
+      mensaje: 'El comentario debe tener al menos 100 caracteres.',
+    })
+  }
+
+  if(comentario.trim().length > 600){
+    return res.status(400).json({
+      error: 'conflicto',
+      mensaje: 'El comentario debe ser menor a 600 caracteres.',
+    })
+  }
+
+
+  try {
+    const [resultado] = await pool.query(
+      'INSERT INTO resenas (id_usuario, id_libro, id_organizacion, calificacion, comentario, fecha) VALUES (?, ?, ?, ?, ?, NOW())',
+      [
+        usuarioId,
+        libroId,
+        organizacionId,
+        calificacion,
+        comentario.trim()
+      ],
+    )
+
+    const resenaId = resultado.insertId;
+
+    const [[resenaPublicada]] = await pool.query(
+      `SELECT r.id, r.calificacion, r.comentario, r.fecha, u.nombre AS usuario
+      FROM resenas r
+      JOIN usuarios u ON u.id = r.id_usuario
+      WHERE r.id = ?`,
+      [resenaId],
+    );
+
+    if (!resenaPublicada) {
+      return res
+        .status(404)
+        .json({ error: 'no_encontrado', mensaje: 'Reseña no encontrada' })
+    }
+
+    res.status(201).json(resenaPublicada)
+  } catch (err) {
+    next(err)
+  }
+})
+
 // PUT /api/libros/:id - Editar valores de un libro (admin)
 app.put(
   '/api/libros/:id',
