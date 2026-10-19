@@ -1139,7 +1139,7 @@ app.patch('/api/prestamos/:id/devolver', verificarToken, async (req, res, next) 
                 l.titulo, l.autor, l.portada
         FROM prestamos p
         JOIN libros l ON l.id = p.id_libro
-        JOIN usuarios u ON u.nombre = p.id_usuario
+        JOIN usuarios u ON u.id = p.id_usuario
         WHERE p.id = ? AND p.id_organizacion = ?`,
         [prestamoId, organizacionId]
       );
