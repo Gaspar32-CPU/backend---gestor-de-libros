@@ -1,10 +1,10 @@
 -- Datos de prueba (solo desarrollo)
 SET NAMES utf8mb4;
 
-INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios, limite_libros, funcionalidades) VALUES
-  ('Básico',   'Para bibliotecas chicas',   0.00, 100,  500,  '{"reservas": false, "reportes": false}'),
-  ('Estándar', 'Uso institucional',        49.00, 500,  5000, '{"reservas": true,  "reportes": false}'),
-  ('Premium',  'Sin límites prácticos',    99.00, 5000, 50000,'{"reservas": true,  "reportes": true}');
+INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios) VALUES
+  ('Básico',   'Para bibliotecas chicas',   0.00, 100),
+  ('Estándar', 'Uso institucional',        49.00, 500),
+  ('Premium',  'Sin límites prácticos',    99.00, 5000);
 
 INSERT INTO organizaciones (nombre, id_plan, dominio, expiracion_suscripcion) VALUES
   ('Anima BT',    2, '@anima.edu.uy',       DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),

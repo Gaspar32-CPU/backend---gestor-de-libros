@@ -159,25 +159,14 @@ app.post(
   verificarToken,
   verificarSuperAdmin,
   async (req, res) => {
-    const {
-      nombre,
-      descripcion,
-      precioMensual,
-      limiteUsuarios,
-      limiteLibros,
-      funcionalidades,
-    } = req.body ?? {}
+    const { nombre, descripcion, precioMensual, limiteUsuarios } =
+      req.body ?? {}
 
-    if (
-      !nombre ||
-      precioMensual == null ||
-      limiteUsuarios == null ||
-      limiteLibros == null
-    ) {
+    if (!nombre || precioMensual == null || limiteUsuarios == null) {
       return res.status(400).json({
         error: 'faltan_campos',
         mensaje:
-          'Faltan campos obligatorios: nombre, precioMensual, limiteUsuarios, limiteLibros',
+          'Faltan campos obligatorios: nombre, precioMensual, limiteUsuarios',
       })
     }
 
@@ -186,8 +175,6 @@ app.post(
       descripcion: descripcion ?? null,
       precioMensual,
       limiteUsuarios,
-      limiteLibros,
-      funcionalidades: funcionalidades ?? {},
     })
 
     res.status(201).json(planNuevo)

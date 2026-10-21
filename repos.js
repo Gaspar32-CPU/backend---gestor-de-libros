@@ -60,14 +60,12 @@ const configuracionOrganizacionDeDB = (fila) => ({
 
 // Solo los campos que existen en la tabla "planes". Lo que la landing
 // muestra de más (precio anual, etc.) lo calcula el frontend.
-// mysql2 ya convierte la columna JSON "funcionalidades" en un objeto.
 const planDeDB = (fila) => ({
   id: fila.id,
   nombre: fila.nombre,
   descripcion: fila.descripcion,
   precioMensual: Number(fila.precio_mensual),
-  limites: { usuarios: fila.limite_usuarios, titulos: fila.limite_libros },
-  funcionalidades: fila.funcionalidades ?? {},
+  limites: { usuarios: fila.limite_usuarios },
   activo: !!fila.activo,
 })
 
@@ -243,20 +241,11 @@ export async function crearPlan({
   descripcion,
   precioMensual,
   limiteUsuarios,
-  limiteLibros,
-  funcionalidades,
 }) {
   const [resultado] = await pool.query(
-    `INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios, limite_libros, funcionalidades)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [
-      nombre,
-      descripcion,
-      precioMensual,
-      limiteUsuarios,
-      limiteLibros,
-      JSON.stringify(funcionalidades),
-    ],
+    `INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios)
+     VALUES (?, ?, ?, ?)`,
+    [nombre, descripcion, precioMensual, limiteUsuarios],
   )
   return buscarPlanPorId(resultado.insertId)
 }
@@ -268,8 +257,6 @@ export async function actualizarPlan(id, campos) {
     descripcion: 'descripcion',
     precioMensual: 'precio_mensual',
     limiteUsuarios: 'limite_usuarios',
-    limiteLibros: 'limite_libros',
-    funcionalidades: 'funcionalidades',
     activo: 'activo',
   }
 
@@ -278,11 +265,7 @@ export async function actualizarPlan(id, campos) {
   for (const [campo, columna] of Object.entries(COLUMNAS)) {
     if (campos[campo] === undefined) continue
     sets.push(`${columna} = ?`)
-    valores.push(
-      campo === 'funcionalidades'
-        ? JSON.stringify(campos[campo])
-        : campos[campo],
-    )
+    valores.push(campos[campo])
   }
 
   if (sets.length > 0) {

@@ -15,8 +15,6 @@ CREATE TABLE planes (
     descripcion       TEXT,
     precio_mensual    DECIMAL(10,2) NOT NULL,
     limite_usuarios   INT UNSIGNED NOT NULL,
-    limite_libros     INT UNSIGNED NOT NULL,
-    funcionalidades   JSON NOT NULL,
     activo            TINYINT(1) NOT NULL DEFAULT 1,
     PRIMARY KEY (id),
     UNIQUE KEY uq_planes_nombre (nombre)
