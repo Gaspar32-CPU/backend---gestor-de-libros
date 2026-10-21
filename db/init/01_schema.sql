@@ -220,12 +220,36 @@ CREATE TABLE notificaciones (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
+-- SECCIONES (pantallas del sistema, para el selector de "Reportar un problema")
+-- Los INSERT van acá y no en 02_seed.sql porque la app las necesita
+-- en todas las bases, no son datos de prueba.
+-- ---------------------------------------------------------------------
+CREATE TABLE secciones (
+    id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nombre  VARCHAR(100) NOT NULL,
+    orden   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    activo  TINYINT(1) NOT NULL DEFAULT 1,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_secciones_nombre (nombre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO secciones (nombre, orden) VALUES
+    ('Catálogo', 1),
+    ('Mis préstamos', 2),
+    ('Reservas', 3),
+    ('Perfil', 4),
+    ('Panel de administración', 5);
+
+-- ---------------------------------------------------------------------
 -- REPORTES DE PROBLEMAS
+-- id_seccion es NULL solo en reportes viejos (ver migración 009);
+-- la API la exige en todos los nuevos.
 -- ---------------------------------------------------------------------
 CREATE TABLE reportes_problemas (
     id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
     id_usuario       INT UNSIGNED NOT NULL,
     id_organizacion  INT UNSIGNED NOT NULL,
+    id_seccion       INT UNSIGNED NULL,
     id_libro         INT UNSIGNED NULL,
     descripcion      TEXT NOT NULL,
     estado           ENUM('abierto','en_revision','resuelto') NOT NULL DEFAULT 'abierto',
@@ -234,12 +258,15 @@ CREATE TABLE reportes_problemas (
     KEY idx_reportes_org_estado (id_organizacion, estado),
     KEY idx_reportes_usuario (id_usuario),
     KEY idx_reportes_libro (id_libro),
+    KEY idx_reportes_seccion (id_seccion),
     CONSTRAINT fk_reportes_usuario FOREIGN KEY (id_usuario)
         REFERENCES usuarios(id) ON DELETE CASCADE,
     CONSTRAINT fk_reportes_org FOREIGN KEY (id_organizacion)
         REFERENCES organizaciones(id) ON DELETE CASCADE,
     CONSTRAINT fk_reportes_libro FOREIGN KEY (id_libro)
-        REFERENCES libros(id) ON DELETE SET NULL
+        REFERENCES libros(id) ON DELETE SET NULL,
+    CONSTRAINT fk_reportes_seccion FOREIGN KEY (id_seccion)
+        REFERENCES secciones(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE envios_email (

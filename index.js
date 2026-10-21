@@ -1606,6 +1606,90 @@ app.patch(
 app.delete('/api/prestamos/:id', verificarToken, verificarAdmin)
 
 /* ============================================================
+   REPORTES DE PROBLEMAS
+   ============================================================ */
+
+// Pueden reportar el admin de una organización y el lector. El super-admin
+// queda afuera: no pertenece a ninguna organización y la tabla la exige.
+const ROLES_QUE_REPORTAN = ['admin', 'lector']
+
+const verificarPuedeReportar = (req, res, next) => {
+  if (!ROLES_QUE_REPORTAN.includes(req.usuario.rol)) {
+    return res.status(403).json({
+      error: 'sin_permiso',
+      mensaje: 'Tu rol no puede enviar reportes.',
+    })
+  }
+  next()
+}
+
+// GET /api/secciones - Secciones para el selector de "Reportar un problema"
+app.get('/api/secciones', verificarToken, async (req, res, next) => {
+  try {
+    const [secciones] = await pool.query(
+      'SELECT id, nombre FROM secciones WHERE activo = 1 ORDER BY orden, nombre',
+    )
+    res.json(secciones)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /api/reportes - Guardar un reporte (usuario y fecha salen del token y de la base)
+app.post(
+  '/api/reportes',
+  verificarToken,
+  verificarPuedeReportar,
+  async (req, res, next) => {
+    const { idSeccion, descripcion } = req.body ?? {}
+    const idSeccionNumero = Number(idSeccion)
+
+    if (!Number.isInteger(idSeccionNumero) || idSeccionNumero <= 0) {
+      return res
+        .status(400)
+        .json({ error: 'campos_vacios', mensaje: 'Elegí una sección.' })
+    }
+
+    if (typeof descripcion !== 'string' || !descripcion.trim()) {
+      return res
+        .status(400)
+        .json({ error: 'campos_vacios', mensaje: 'Contanos qué pasó.' })
+    }
+
+    try {
+      const [[seccion]] = await pool.query(
+        'SELECT id FROM secciones WHERE id = ? AND activo = 1',
+        [idSeccionNumero],
+      )
+
+      if (!seccion) {
+        return res.status(400).json({
+          error: 'seccion_invalida',
+          mensaje: 'La sección elegida no existe.',
+        })
+      }
+
+      const [resultado] = await pool.query(
+        'INSERT INTO reportes_problemas (id_usuario, id_organizacion, id_seccion, descripcion) VALUES (?, ?, ?, ?)',
+        [
+          req.usuario.id,
+          req.usuario.organizacionId,
+          idSeccionNumero,
+          descripcion.trim(),
+        ],
+      )
+
+      res.status(201).json({
+        id: resultado.insertId,
+        mensaje: '¡Gracias! Recibimos tu reporte.',
+      })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+/* ============================================================
    MANEJO DE ERRORES  
    Van al final: Express los evalúa en orden y estos son la red
    que atrapa todo lo que no matcheó antes.
