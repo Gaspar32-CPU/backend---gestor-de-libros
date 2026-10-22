@@ -14,12 +14,15 @@ import {
   subirLogo,
   borrarArchivoLogo,
 } from './middlewares/subirLogo.js'
+import { subirFoto, borrarArchivoFoto } from './middlewares/subirFoto.js'
 import {
   buscarUsuarioPorCorreo,
   buscarUsuarioPorId,
   listarUsuarios,
   listarUsuariosPorOrganizacion,
   crearUsuario,
+  actualizarUsuario,
+  actualizarFotoUsuario,
   actualizarUsuarioPendiente,
   buscarOrganizacionPorId,
   buscarOrganizacionPorDominio,
@@ -980,7 +983,136 @@ app.get('/api/usuarios/:id', verificarToken, async (req, res) => {
 })
 
 // PUT /api/usuarios/:id - Editar un usuario (el propio usuario, o admin de su organización)
-app.put('/api/usuarios/:id', verificarToken, sinImplementar)
+// Solo actualiza datos de perfil (nombre, apellido, teléfono y, opcionalmente,
+// contraseña). El correo, el rol y la organización no se tocan acá: el
+// frontend los muestra como no editables (ver Perfil.jsx) porque cambiarlos
+// tiene implicancias de identidad/organización que no son parte de "editar
+// mi perfil".
+app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
+  const usuario = await buscarUsuarioPorId(req.params.id)
+
+  if (!usuario) {
+    return res.status(404).json({ error: 'Usuario no encontrado' })
+  }
+
+  const esElPropio = req.usuario.id === usuario.id
+  const esAdminDeSuOrg =
+    ['admin', 'super-admin'].includes(req.usuario.rol) &&
+    esDeMiOrganizacion(req, usuario.organizacionId)
+
+  if (!esElPropio && !esAdminDeSuOrg) {
+    return res.status(403).json({ error: 'No autorizado' })
+  }
+
+  // El frontend (perfilService.js) ya valida la confirmación de contraseña
+  // en el cliente antes de llamar a este endpoint, así que acá solo llega
+  // "contrasena" (sin repetir).
+  const { nombre, apellido, telefono, contrasena } = req.body ?? {}
+
+  if (
+    typeof nombre !== 'string' || !nombre.trim() ||
+    typeof apellido !== 'string' || !apellido.trim() ||
+    typeof telefono !== 'string' || !telefono.trim()
+  ) {
+    return res.status(400).json({
+      error: 'faltan_campos',
+      mensaje: 'Faltan campos obligatorios: nombre, apellido, telefono',
+    })
+  }
+
+  try {
+    const contrasenaHasheada = contrasena
+      ? await bcrypt.hash(contrasena, 10)
+      : undefined
+
+    await actualizarUsuario({
+      id: usuario.id,
+      nombre: nombre.trim(),
+      apellido: apellido.trim(),
+      telefono: telefono.trim(),
+      contrasena: contrasenaHasheada,
+    })
+
+    const usuarioActualizado = await buscarUsuarioPorId(usuario.id)
+    const { contrasena: _contrasena, ...usuarioSinContrasena } =
+      usuarioActualizado
+    res.json(usuarioSinContrasena)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// Corre antes de multer: si no tiene permiso o el usuario no existe, se
+// corta sin escribir nada en disco. Mismo criterio que el resto de
+// /api/usuarios/:id: el propio usuario, o un admin de su organización.
+const puedeEditarFotoDe = async (req, res, next) => {
+  const usuario = await buscarUsuarioPorId(req.params.id)
+  if (!usuario) {
+    return res.status(404).json({ error: 'Usuario no encontrado' })
+  }
+
+  const esElPropio = req.usuario.id === usuario.id
+  const esAdminDeSuOrg =
+    ['admin', 'super-admin'].includes(req.usuario.rol) &&
+    esDeMiOrganizacion(req, usuario.organizacionId)
+
+  if (!esElPropio && !esAdminDeSuOrg) {
+    return res.status(403).json({ error: 'No autorizado' })
+  }
+
+  req.usuarioEditado = usuario
+  next()
+}
+
+// POST /api/usuarios/:id/foto - Subir/reemplazar la foto de perfil
+// (el propio usuario, o admin de su organización). Tiene su propio endpoint,
+// igual que el logo de organización, en vez de ir por el PUT genérico: ese
+// recibe JSON, este un archivo multipart.
+app.post(
+  '/api/usuarios/:id/foto',
+  verificarToken,
+  puedeEditarFotoDe,
+  subirFoto,
+  async (req, res, next) => {
+    const url = `/uploads/avatars/${req.file.filename}`
+
+    try {
+      await actualizarFotoUsuario(req.usuarioEditado.id, url)
+      borrarArchivoFoto(req.usuarioEditado.foto)
+
+      const usuarioActualizado = await buscarUsuarioPorId(
+        req.usuarioEditado.id,
+      )
+      const { contrasena, ...usuarioSinContrasena } = usuarioActualizado
+      res.json(usuarioSinContrasena)
+    } catch (err) {
+      // Si no se pudo guardar la URL, el archivo queda huérfano: se borra.
+      borrarArchivoFoto(url)
+      next(err)
+    }
+  },
+)
+
+// DELETE /api/usuarios/:id/foto - Quitar la foto de perfil (volver a iniciales)
+app.delete(
+  '/api/usuarios/:id/foto',
+  verificarToken,
+  puedeEditarFotoDe,
+  async (req, res, next) => {
+    try {
+      await actualizarFotoUsuario(req.usuarioEditado.id, null)
+      borrarArchivoFoto(req.usuarioEditado.foto)
+
+      const usuarioActualizado = await buscarUsuarioPorId(
+        req.usuarioEditado.id,
+      )
+      const { contrasena, ...usuarioSinContrasena } = usuarioActualizado
+      res.json(usuarioSinContrasena)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
 
 // DELETE /api/usuarios/:id - Eliminar un usuario (el propio usuario, o admin de su organización)
 app.delete('/api/usuarios/:id', verificarToken, sinImplementar)

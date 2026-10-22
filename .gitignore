@@ -23,7 +23,5 @@ Thumbs.db
 *.pem
 *.key
 
-uploads/node_modules/
-
-# Archivos subidos por los usuarios (logos, etc.)
+# Archivos subidos por usuarios (fotos de perfil, logos). No son código.
 uploads/

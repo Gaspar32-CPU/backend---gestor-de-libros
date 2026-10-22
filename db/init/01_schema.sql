@@ -78,6 +78,9 @@ CREATE TABLE usuarios (
     email            VARCHAR(150) NOT NULL,
     email_verificado_en  DATETIME NULL,
     telefono         VARCHAR(30) NOT NULL,
+    -- Ruta relativa servida desde /uploads (ver multer en index.js). NULL =
+    -- sin foto, se muestran las iniciales.
+    foto             VARCHAR(255) NULL,
     -- NULL = usuario invitado por un admin que todavía no creó su contraseña
     -- (ver POST /api/usuarios y POST /api/auth/crear-contrasena en index.js).
     contrasena       VARCHAR(255) NULL,
