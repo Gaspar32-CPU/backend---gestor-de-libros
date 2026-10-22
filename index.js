@@ -837,12 +837,6 @@ app.post('/api/auth/register', async (req, res) => {
           conexion,
         )
         organizacionId = organizacionNueva.id
-
-        await crearConfiguracion(
-          organizacionId,
-          { nombreApp: organizacion, lugarRetiro: '' },
-          conexion,
-        )
       } else {
         organizacionId = organizacionExistente.id
       }

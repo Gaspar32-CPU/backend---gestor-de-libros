@@ -293,6 +293,11 @@ export async function buscarOrganizacionPorDominio(dominio) {
   return filas[0] ? organizacionDeDB(filas[0]) : undefined
 }
 
+// Toda organización nace con su configuración: sin ella, la pantalla de
+// configuración da 404 y los préstamos usan valores por defecto. El resto de
+// los campos toma el DEFAULT de la tabla; lugar_retiro es NOT NULL y lo
+// completa el admin después. Pasá la conexión de la transacción para que, si
+// algo falla, no quede una organización sin configuración.
 export async function crearOrganizacion(
   { nombre, idPlan, dominio, expiracion },
   conexion = pool,
@@ -301,6 +306,12 @@ export async function crearOrganizacion(
     `INSERT INTO organizaciones (nombre, id_plan, dominio, activo, expiracion_suscripcion)
      VALUES (?, ?, ?, 1, ?)`,
     [nombre, idPlan, dominio, expiracion],
+  )
+
+  await crearConfiguracion(
+    resultado.insertId,
+    { nombreApp: nombre, lugarRetiro: '' },
+    conexion,
   )
 
   return organizacionDeDB({
