@@ -92,9 +92,9 @@ INSERT INTO prestamos (id_usuario, id_libro, id_organizacion, fecha_devolucion_e
   (3, 1, 1, DATE_ADD(NOW(), INTERVAL 30 DAY), 'Mostrador principal', 'activo'),
   (3, 2, 1, DATE_SUB(NOW(), INTERVAL 3 DAY),  'Mostrador principal', 'atrasado');
 
-INSERT INTO resenas (id_usuario, id_libro, calificacion, comentario) VALUES
-  (3, 1, 5, 'Excelente, muy recomendable.'),
-  (3, 2, 4, NULL);
+INSERT INTO resenas (id_usuario, id_libro, id_organizacion, calificacion, comentario) VALUES
+  (3, 1, 1, 5, 'Excelente, muy recomendable.'),
+  (3, 2, 1, 4, NULL);
 
 INSERT INTO notificaciones (id_usuario, id_prestamo, tipo, mensaje) VALUES
   (3, 2, 'vencimiento_1_dia', 'Tu préstamo de Fahrenheit 451 está atrasado.'),
