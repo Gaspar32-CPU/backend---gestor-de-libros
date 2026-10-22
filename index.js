@@ -260,14 +260,6 @@ app.get(
    ORGANIZACIONES
    ============================================================ */
 
-// POST /api/organizaciones - Crear una nueva organización (super-admin)
-app.post(
-  '/api/organizaciones',
-  verificarToken,
-  verificarSuperAdmin,
-  sinImplementar,
-)
-
 // GET /api/organizaciones - Listar todas las organizaciones (super-admin)
 app.get(
   '/api/organizaciones',
@@ -1791,9 +1783,6 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
     next(err)
   }
 })
-
-// GET /api/prestamos - Listar todos los préstamos (admin), admite ?estado=vencido
-app.get('/api/prestamos', verificarToken, verificarAdmin, sinImplementar)
 
 // GET /api/prestamos/:id - Ver un préstamo específico (admin)
 app.get('/api/prestamos/:id', verificarToken, verificarAdmin, sinImplementar)
