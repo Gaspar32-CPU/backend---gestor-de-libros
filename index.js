@@ -14,7 +14,6 @@ import {
   subirLogo,
   borrarArchivoLogo,
 } from './middlewares/subirLogo.js'
-import { planesComparativa } from './contenido/planesComparativa.js'
 import {
   buscarUsuarioPorCorreo,
   buscarUsuarioPorId,
@@ -152,15 +151,6 @@ app.post('/api/pagos/webhook', sinImplementar)
 // GET /api/planes - Listar todos los planes (público)
 app.get('/api/planes', async (req, res) => {
   res.json(await listarPlanes())
-})
-
-// GET /api/planes/comparativa - Tabla comparativa de funcionalidades (público)
-// Nota de orden: va ANTES de /api/planes/:id para que Express no interprete
-// "comparativa" como un valor de :id (mismo patrón que /prestamos/mis-prestamos).
-// La comparativa es contenido de marketing fijo: no tiene tabla propia en la
-// DB, así que se sirve desde contenido/planesComparativa.js.
-app.get('/api/planes/comparativa', (req, res) => {
-  res.json(planesComparativa)
 })
 
 // GET /api/planes/:id - Ver un plan específico (público)
