@@ -1,6 +1,8 @@
 ## Base de datos local
 
 El proyecto usa MySQL 8.4 en Docker. No hace falta instalar MySQL en la máquina.
+Si no podés o no querés usar Docker, ver
+[Alternativa: MySQL local (sin Docker)](#alternativa-mysql-local-sin-docker).
 
 ### Requisitos
 
@@ -105,24 +107,62 @@ aplicarlos de nuevo.
 ### Alternativa: MySQL local (sin Docker)
 
 Si Docker Desktop no arranca (falla frecuente en Windows) o preferís no usarlo, podés
-apuntar el proyecto a un MySQL instalado en la máquina en vez del contenedor. Cambiá
-el `.env` para que apunte a esa instancia (usuario, contraseña y `DB_NAME` propios,
-no tienen que coincidir con los del `docker-compose.yml`).
+usar un MySQL instalado en la máquina en vez del contenedor. Creando la base y el
+usuario con los mismos nombres que usa Docker (`biblioteca` / `biblioteca`), el
+`.env.example` sirve casi sin cambios.
 
 Como en este caso los scripts de `db/init/` no se auto-ejecutan (eso solo lo hace
-Docker en un volumen vacío), hay que correrlos a mano con el cliente `mysql`. Esto
-aplica tanto para el primer arranque como para cualquier cambio posterior en
-`01_schema.sql` o `02_seed.sql` — no hace falta distinguir los casos, recrear todo
-siempre funciona porque el schema son puros `CREATE TABLE` sobre una base vacía:
+Docker en un volumen vacío), hay que correrlos a mano con el cliente `mysql`.
+
+**Requisitos:** MySQL Server 8 (en Windows: _MySQL Installer_ desde
+dev.mysql.com/downloads/installer, opción **Server only**, puerto **3306**; anotá
+la contraseña de `root`) y Node.js 20.6 o superior.
+
+Los comandos son para **Git Bash** (en PowerShell no funciona la redirección `<`),
+desde la carpeta del repo:
 
 ```bash
-# Ajustá MYSQL, host, usuario, contraseña y DB_NAME a los de tu .env
-MYSQL="/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe"   # en Linux/Mac: solo "mysql"
+# Ajustá "8.0" a la versión instalada (ver C:\Program Files\MySQL\). En Linux/Mac: solo "mysql"
+MYSQL="/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe"
 
-"$MYSQL" -h 127.0.0.1 -P 3306 -u root -proot -e "DROP DATABASE IF EXISTS gestion_libros; CREATE DATABASE gestion_libros CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-"$MYSQL" -h 127.0.0.1 -P 3306 -u root -proot gestion_libros < "db/init/01_schema.sql"
-"$MYSQL" -h 127.0.0.1 -P 3306 -u root -proot gestion_libros < "db/init/02_seed.sql"
+# 1. Crear la base y el usuario (pide la contraseña de root)
+"$MYSQL" -u root -p -e "
+CREATE DATABASE biblioteca CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE USER 'biblioteca'@'localhost' IDENTIFIED BY 'biblioteca';
+GRANT ALL PRIVILEGES ON biblioteca.* TO 'biblioteca'@'localhost';"
+
+# 2. Cargar esquema y datos de prueba
+"$MYSQL" -u biblioteca -pbiblioteca biblioteca < db/init/01_schema.sql
+"$MYSQL" -u biblioteca -pbiblioteca biblioteca < db/init/02_seed.sql
+
+# 3. Configurar variables de entorno
+cp .env.example .env
+
+# 4. Instalar dependencias y arrancar
+npm install
+node index.js
 ```
+
+En el `.env`, las `DB_*` ya coinciden con lo creado arriba; solo hay que corregir
+la URL de Prisma, que en el ejemplo trae `usuario:password`:
+
+```
+DATABASE_URL="mysql://biblioteca:biblioteca@localhost:3306/biblioteca"
+```
+
+Verificar igual que con Docker: http://localhost:3001/api/salud.
+
+**Resetear la base** (por ejemplo, si cambió `01_schema.sql` o `02_seed.sql`):
+recrear todo siempre funciona porque el schema son puros `CREATE TABLE` sobre una
+base vacía. Los permisos del usuario se conservan.
+
+```bash
+"$MYSQL" -u root -p -e "DROP DATABASE biblioteca; CREATE DATABASE biblioteca CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+# y repetir el paso 2
+```
+
+Si el backend no conecta o el puerto 3306 está ocupado, revisá que no esté
+corriendo también el contenedor de Docker (`docker compose stop`).
 
 ### Usuarios de prueba
 

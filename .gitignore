@@ -24,3 +24,6 @@ Thumbs.db
 *.key
 
 uploads/node_modules/
+
+# Archivos subidos por los usuarios (logos, etc.)
+uploads/

@@ -49,6 +49,8 @@ const configuracionOrganizacionDeDB = (fila) => ({
   colorSecundario: fila.color_secundario,
   maxLibrosPorUsuario: fila.max_libros_por_usuario,
   lugarRetiro: fila.lugar_retiro,
+  lugarDevolucion: fila.lugar_devolucion,
+  horarios: fila.horarios,
   diasPrestamo: fila.dias_prestamo,
   permiteExtension: !!fila.permite_extension,
   maxExtensiones: fila.max_extensiones,
@@ -187,6 +189,100 @@ export async function buscarDatosOrganizacionPorId(id) {
     [idNum],
   )
   return filas[0] ? configuracionOrganizacionDeDB(filas[0]) : undefined
+}
+
+// Campos de la configuración que se pueden escribir desde la API, con su
+// columna en la tabla "configuraciones".
+const COLUMNAS_CONFIGURACION = {
+  nombreApp: 'nombre_app',
+  logo: 'logo',
+  colorPrimario: 'color_primario',
+  colorSecundario: 'color_secundario',
+  maxLibrosPorUsuario: 'max_libros_por_usuario',
+  lugarRetiro: 'lugar_retiro',
+  lugarDevolucion: 'lugar_devolucion',
+  horarios: 'horarios',
+  diasPrestamo: 'dias_prestamo',
+  permiteExtension: 'permite_extension',
+  maxExtensiones: 'max_extensiones',
+  diasExtension: 'dias_extension',
+  congelarUsuarios: 'congelar_usuarios',
+  diasAtrasoCongelamiento: 'dias_atraso_congelamiento',
+  mensajesPersonalizados: 'mensajes_personalizados',
+}
+
+// Columnas JSON: mysql2 las devuelve parseadas, pero para escribirlas hay que
+// mandar el texto.
+const CAMPOS_JSON = ['horarios', 'mensajesPersonalizados']
+
+// Pasa los campos recibidos (camelCase) a pares columna/valor. Los que vienen
+// undefined se omiten: en el INSERT toman el DEFAULT de la tabla y en el
+// UPDATE quedan como estaban.
+const columnasConfiguracion = (campos) => {
+  const columnas = []
+  const valores = []
+  for (const [campo, columna] of Object.entries(COLUMNAS_CONFIGURACION)) {
+    if (campos[campo] === undefined) continue
+    columnas.push(columna)
+    valores.push(
+      CAMPOS_JSON.includes(campo) && campos[campo] !== null
+        ? JSON.stringify(campos[campo])
+        : campos[campo],
+    )
+  }
+  return { columnas, valores }
+}
+
+export async function crearConfiguracion(
+  idOrganizacion,
+  campos,
+  conexion = pool,
+) {
+  const { columnas, valores } = columnasConfiguracion(campos)
+  await conexion.query(
+    `INSERT INTO configuraciones (id_organizacion, ${columnas.join(', ')})
+     VALUES (?, ${columnas.map(() => '?').join(', ')})`,
+    [idOrganizacion, ...valores],
+  )
+  // Con una conexión de transacción, la fila todavía no es visible desde el
+  // pool hasta el commit; por eso se lee con la misma conexión.
+  const [filas] = await conexion.query(
+    'SELECT * FROM configuraciones WHERE id_organizacion = ?',
+    [idOrganizacion],
+  )
+  return configuracionOrganizacionDeDB(filas[0])
+}
+
+// El nombre de la app es también el nombre de la organización: si cambia, se
+// actualizan las dos tablas en el mismo UPDATE (multi-tabla), así nunca queda
+// una cambiada y la otra no.
+export async function actualizarConfiguracion(idOrganizacion, campos) {
+  const { columnas, valores } = columnasConfiguracion(campos)
+  const sets = columnas.map((c) => `c.${c} = ?`)
+  if (campos.nombreApp !== undefined) {
+    sets.push('o.nombre = ?')
+    valores.push(campos.nombreApp)
+  }
+
+  if (sets.length > 0) {
+    await pool.query(
+      `UPDATE configuraciones c
+       JOIN organizaciones o ON o.id = c.id_organizacion
+       SET ${sets.join(', ')}
+       WHERE c.id_organizacion = ?`,
+      [...valores, idOrganizacion],
+    )
+  }
+  return buscarDatosOrganizacionPorId(idOrganizacion)
+}
+
+// Devuelve true si borró la configuración.
+export async function eliminarConfiguracion(idOrganizacion) {
+  const [resultado] = await pool.query(
+    'DELETE FROM configuraciones WHERE id_organizacion = ?',
+    [idOrganizacion],
+  )
+  return resultado.affectedRows > 0
 }
 
 export async function buscarOrganizacionPorDominio(dominio) {

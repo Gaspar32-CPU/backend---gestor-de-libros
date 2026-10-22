@@ -9,6 +9,11 @@ import {
   verificarAdmin,
   verificarSuperAdmin,
 } from './middlewares/auth.js'
+import {
+  CARPETA_UPLOADS,
+  subirLogo,
+  borrarArchivoLogo,
+} from './middlewares/subirLogo.js'
 import { planesComparativa } from './contenido/planesComparativa.js'
 import {
   buscarUsuarioPorCorreo,
@@ -26,6 +31,9 @@ import {
   actualizarPlan,
   eliminarPlan,
   buscarDatosOrganizacionPorId,
+  crearConfiguracion,
+  actualizarConfiguracion,
+  eliminarConfiguracion,
   listarUsuariosTodasOrganizaciones,
 } from './repos.js'
 
@@ -53,6 +61,15 @@ if (!process.env.JWT_SECRET) {
 }
 
 app.use(cors())
+
+// Archivos subidos (por ahora, logos de organizaciones). nosniff evita que el
+// navegador interprete una imagen como otro tipo de archivo.
+app.use(
+  '/uploads',
+  express.static(CARPETA_UPLOADS, {
+    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+  }),
+)
 
 // Guardamos el body crudo además del parseado: el webhook de pagos necesita
 // el texto original para verificar la firma del proveedor.
@@ -307,16 +324,206 @@ app.delete(
    no el de la configuración.
    ============================================================ */
 
+const COLOR_VALIDO = /^#[0-9a-fA-F]{6}$/
+
+const esEnteroEntre = (valor, min, max) =>
+  Number.isInteger(valor) && valor >= min && valor <= max
+
+const esTextoHasta = (valor, max) =>
+  typeof valor === 'string' && valor.trim() !== '' && valor.length <= max
+
+const validarConfiguracion = (campos) => {
+  const {
+    nombreApp,
+    logo,
+    colorPrimario,
+    colorSecundario,
+    maxLibrosPorUsuario,
+    lugarRetiro,
+    lugarDevolucion,
+    diasPrestamo,
+    permiteExtension,
+    maxExtensiones,
+    diasExtension,
+    congelarUsuarios,
+    diasAtrasoCongelamiento,
+    mensajesPersonalizados,
+    horarios,
+  } = campos
+
+  if (nombreApp !== undefined && !esTextoHasta(nombreApp, 150)) {
+    return 'nombreApp debe ser un texto de hasta 150 caracteres'
+  }
+  if (logo !== undefined && logo !== null && !esTextoHasta(logo, 255)) {
+    return 'logo debe ser una URL de hasta 255 caracteres o null'
+  }
+  if (colorPrimario !== undefined && !COLOR_VALIDO.test(colorPrimario)) {
+    return 'colorPrimario debe tener el formato #RRGGBB'
+  }
+  if (
+    colorSecundario !== undefined &&
+    colorSecundario !== null &&
+    !COLOR_VALIDO.test(colorSecundario)
+  ) {
+    return 'colorSecundario debe tener el formato #RRGGBB o ser null'
+  }
+  if (
+    maxLibrosPorUsuario !== undefined &&
+    !esEnteroEntre(maxLibrosPorUsuario, 1, 255)
+  ) {
+    return 'maxLibrosPorUsuario debe ser un entero entre 1 y 255'
+  }
+  if (lugarRetiro !== undefined && !esTextoHasta(lugarRetiro, 150)) {
+    return 'lugarRetiro debe ser un texto de hasta 150 caracteres'
+  }
+  if (
+    lugarDevolucion !== undefined &&
+    lugarDevolucion !== null &&
+    !esTextoHasta(lugarDevolucion, 150)
+  ) {
+    return 'lugarDevolucion debe ser un texto de hasta 150 caracteres o null'
+  }
+  if (diasPrestamo !== undefined && !esEnteroEntre(diasPrestamo, 1, 65535)) {
+    return 'diasPrestamo debe ser un entero mayor a 0'
+  }
+  if (permiteExtension !== undefined && typeof permiteExtension !== 'boolean') {
+    return 'permiteExtension debe ser true o false'
+  }
+  if (maxExtensiones !== undefined && !esEnteroEntre(maxExtensiones, 0, 255)) {
+    return 'maxExtensiones debe ser un entero entre 0 y 255'
+  }
+  if (diasExtension !== undefined && !esEnteroEntre(diasExtension, 1, 65535)) {
+    return 'diasExtension debe ser un entero mayor a 0'
+  }
+  if (congelarUsuarios !== undefined && typeof congelarUsuarios !== 'boolean') {
+    return 'congelarUsuarios debe ser true o false'
+  }
+  if (
+    diasAtrasoCongelamiento !== undefined &&
+    diasAtrasoCongelamiento !== null &&
+    !esEnteroEntre(diasAtrasoCongelamiento, 1, 65535)
+  ) {
+    return 'diasAtrasoCongelamiento debe ser un entero mayor a 0 o null'
+  }
+
+  if (mensajesPersonalizados !== undefined && mensajesPersonalizados !== null) {
+    if (!Array.isArray(mensajesPersonalizados)) {
+      return 'mensajesPersonalizados debe ser un arreglo'
+    }
+    const tipos = new Set()
+    for (const m of mensajesPersonalizados) {
+      if (
+        !m ||
+        !esTextoHasta(m.tipo, 50) ||
+        typeof m.mensaje !== 'string' ||
+        typeof m.activo !== 'boolean'
+      ) {
+        return 'Cada mensaje personalizado debe tener tipo (texto), mensaje (texto) y activo (true/false)'
+      }
+      if (tipos.has(m.tipo)) {
+        return `El tipo de mensaje "${m.tipo}" está repetido`
+      }
+      tipos.add(m.tipo)
+    }
+  }
+
+  if (horarios !== undefined && horarios !== null) {
+    if (!Array.isArray(horarios) || horarios.length !== 7) {
+      return 'horarios debe ser un arreglo con los 7 días de la semana'
+    }
+    const dias = new Set()
+    for (const h of horarios) {
+      if (
+        !h ||
+        !esEnteroEntre(h.dia, 0, 6) ||
+        typeof h.abierto !== 'boolean' ||
+        !HORA_VALIDA.test(h.apertura) ||
+        !HORA_VALIDA.test(h.cierre)
+      ) {
+        return 'Cada horario debe tener dia (0-6), abierto (true/false), apertura y cierre (HH:MM)'
+      }
+      if (dias.has(h.dia)) {
+        return `El día ${h.dia} está repetido en horarios`
+      }
+      // "HH:MM" con ceros a la izquierda se puede comparar como texto.
+      if (h.abierto && h.apertura >= h.cierre) {
+        return `En el día ${h.dia} la apertura tiene que ser antes del cierre`
+      }
+      dias.add(h.dia)
+    }
+  }
+
+  return null
+}
+
+const HORA_VALIDA = /^([01]\d|2[0-3]):[0-5]\d$/
+
+const limpiarMensajes = (mensajes) =>
+  Array.isArray(mensajes)
+    ? mensajes.map(({ tipo, mensaje, activo }) => ({ tipo, mensaje, activo }))
+    : mensajes
+
+const limpiarHorarios = (horarios) =>
+  Array.isArray(horarios)
+    ? horarios
+        .map(({ dia, abierto, apertura, cierre }) => ({
+          dia,
+          abierto,
+          apertura,
+          cierre,
+        }))
+        .sort((a, b) => a.dia - b.dia)
+    : horarios
+
 // POST /api/organizaciones/:id/configuracion - Crear configuración (admin)
 app.post(
   '/api/organizaciones/:id/configuracion',
   verificarToken,
   verificarAdmin,
-  (req, res) => {
+  async (req, res) => {
     if (!esDeMiOrganizacion(req, req.params.id)) {
       return res.status(403).json({ error: 'No autorizado' })
     }
-    sinImplementar(req, res)
+
+    const campos = req.body ?? {}
+
+    if (!campos.nombreApp || !campos.lugarRetiro) {
+      return res.status(400).json({
+        error: 'faltan_campos',
+        mensaje: 'Faltan campos obligatorios: nombreApp, lugarRetiro',
+      })
+    }
+
+    const errorValidacion = validarConfiguracion(campos)
+    if (errorValidacion) {
+      return res
+        .status(400)
+        .json({ error: 'datos_invalidos', mensaje: errorValidacion })
+    }
+
+    if (!(await buscarOrganizacionPorId(req.params.id))) {
+      return res.status(404).json({ error: 'Organizacion no encontrada' })
+    }
+
+    try {
+      const configuracion = await crearConfiguracion(parseInt(req.params.id), {
+        ...campos,
+        mensajesPersonalizados: limpiarMensajes(campos.mensajesPersonalizados),
+        horarios: limpiarHorarios(campos.horarios),
+        // El logo solo se cambia con los endpoints de /logo, que validan el archivo.
+        logo: undefined,
+      })
+      res.status(201).json(configuracion)
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({
+          error: 'configuracion_existente',
+          mensaje:
+            'La organización ya tiene configuración. Usá PUT para editarla.',
+        })
+      }
+      throw err
+    }
   },
 )
 
@@ -341,15 +548,38 @@ app.get(
 )
 
 // PUT /api/organizaciones/:id/configuracion - Editar configuración (admin)
+// Es parcial: solo se cambian los campos que vienen en el body.
 app.put(
   '/api/organizaciones/:id/configuracion',
   verificarToken,
   verificarAdmin,
-  (req, res) => {
+  async (req, res) => {
     if (!esDeMiOrganizacion(req, req.params.id)) {
       return res.status(403).json({ error: 'No autorizado' })
     }
-    sinImplementar(req, res)
+
+    const campos = req.body ?? {}
+
+    const errorValidacion = validarConfiguracion(campos)
+    if (errorValidacion) {
+      return res
+        .status(400)
+        .json({ error: 'datos_invalidos', mensaje: errorValidacion })
+    }
+
+    if (!(await buscarDatosOrganizacionPorId(req.params.id))) {
+      return res.status(404).json({ error: 'Configuracion no encontrada' })
+    }
+
+    res.json(
+      await actualizarConfiguracion(parseInt(req.params.id), {
+        ...campos,
+        mensajesPersonalizados: limpiarMensajes(campos.mensajesPersonalizados),
+        horarios: limpiarHorarios(campos.horarios),
+        // El logo solo se cambia con los endpoints de /logo, que validan el archivo.
+        logo: undefined,
+      }),
+    )
   },
 )
 
@@ -358,11 +588,75 @@ app.delete(
   '/api/organizaciones/:id/configuracion',
   verificarToken,
   verificarAdmin,
-  (req, res) => {
+  async (req, res) => {
     if (!esDeMiOrganizacion(req, req.params.id)) {
       return res.status(403).json({ error: 'No autorizado' })
     }
-    sinImplementar(req, res)
+
+    const configuracion = await buscarDatosOrganizacionPorId(req.params.id)
+    if (!(await eliminarConfiguracion(parseInt(req.params.id)))) {
+      return res.status(404).json({ error: 'Configuracion no encontrada' })
+    }
+    borrarArchivoLogo(configuracion?.logo)
+
+    res.json({ mensaje: 'Configuracion eliminada' })
+  },
+)
+
+// Corre antes de multer: si no tiene permiso o la organización no tiene
+// configuración, se corta sin escribir nada en disco.
+const puedeEditarConfiguracion = async (req, res, next) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' })
+  }
+  if (!(await buscarDatosOrganizacionPorId(req.params.id))) {
+    return res.status(404).json({ error: 'Configuracion no encontrada' })
+  }
+  next()
+}
+
+// POST /api/organizaciones/:id/configuracion/logo - Subir o reemplazar el logo (admin)
+// multipart/form-data con el archivo en el campo "logo". Se guarda en el
+// momento, sin pasar por el PUT de la configuración.
+app.post(
+  '/api/organizaciones/:id/configuracion/logo',
+  verificarToken,
+  verificarAdmin,
+  puedeEditarConfiguracion,
+  subirLogo,
+  async (req, res) => {
+    const anterior = await buscarDatosOrganizacionPorId(req.params.id)
+    const url = `/uploads/logos/${req.file.filename}`
+
+    try {
+      const configuracion = await actualizarConfiguracion(
+        parseInt(req.params.id),
+        { logo: url },
+      )
+      borrarArchivoLogo(anterior?.logo)
+      res.json(configuracion)
+    } catch (err) {
+      // Si no se pudo guardar la URL, el archivo queda huérfano: se borra.
+      borrarArchivoLogo(url)
+      throw err
+    }
+  },
+)
+
+// DELETE /api/organizaciones/:id/configuracion/logo - Quitar el logo (admin)
+app.delete(
+  '/api/organizaciones/:id/configuracion/logo',
+  verificarToken,
+  verificarAdmin,
+  puedeEditarConfiguracion,
+  async (req, res) => {
+    const anterior = await buscarDatosOrganizacionPorId(req.params.id)
+    const configuracion = await actualizarConfiguracion(
+      parseInt(req.params.id),
+      { logo: null },
+    )
+    borrarArchivoLogo(anterior?.logo)
+    res.json(configuracion)
   },
 )
 
@@ -546,6 +840,12 @@ app.post('/api/auth/register', async (req, res) => {
           conexion,
         )
         organizacionId = organizacionNueva.id
+
+        await crearConfiguracion(
+          organizacionId,
+          { nombreApp: organizacion, lugarRetiro: '' },
+          conexion,
+        )
       } else {
         organizacionId = organizacionExistente.id
       }
