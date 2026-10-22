@@ -64,9 +64,14 @@ app.use(cors())
 
 // Archivos subidos (por ahora, logos de organizaciones). nosniff evita que el
 // navegador interprete una imagen como otro tipo de archivo.
+// Cada archivo tiene un nombre único (lleva timestamp) y nunca se reescribe,
+// así que se puede cachear para siempre: el navegador no vuelve a pedirlo al
+// cambiar de vista y el logo no parpadea.
 app.use(
   '/uploads',
   express.static(CARPETA_UPLOADS, {
+    maxAge: '1y',
+    immutable: true,
     setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
   }),
 )
