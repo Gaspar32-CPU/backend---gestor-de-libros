@@ -249,12 +249,23 @@ export async function crearConfiguracion(
   return configuracionOrganizacionDeDB(filas[0])
 }
 
+// El nombre de la app es también el nombre de la organización: si cambia, se
+// actualizan las dos tablas en el mismo UPDATE (multi-tabla), así nunca queda
+// una cambiada y la otra no.
 export async function actualizarConfiguracion(idOrganizacion, campos) {
   const { columnas, valores } = columnasConfiguracion(campos)
-  if (columnas.length > 0) {
+  const sets = columnas.map((c) => `c.${c} = ?`)
+  if (campos.nombreApp !== undefined) {
+    sets.push('o.nombre = ?')
+    valores.push(campos.nombreApp)
+  }
+
+  if (sets.length > 0) {
     await pool.query(
-      `UPDATE configuraciones SET ${columnas.map((c) => `${c} = ?`).join(', ')}
-       WHERE id_organizacion = ?`,
+      `UPDATE configuraciones c
+       JOIN organizaciones o ON o.id = c.id_organizacion
+       SET ${sets.join(', ')}
+       WHERE c.id_organizacion = ?`,
       [...valores, idOrganizacion],
     )
   }

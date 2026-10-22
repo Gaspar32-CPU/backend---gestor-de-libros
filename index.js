@@ -9,6 +9,11 @@ import {
   verificarAdmin,
   verificarSuperAdmin,
 } from './middlewares/auth.js'
+import {
+  CARPETA_UPLOADS,
+  subirLogo,
+  borrarArchivoLogo,
+} from './middlewares/subirLogo.js'
 import { planesComparativa } from './contenido/planesComparativa.js'
 import {
   buscarUsuarioPorCorreo,
@@ -56,6 +61,15 @@ if (!process.env.JWT_SECRET) {
 }
 
 app.use(cors())
+
+// Archivos subidos (por ahora, logos de organizaciones). nosniff evita que el
+// navegador interprete una imagen como otro tipo de archivo.
+app.use(
+  '/uploads',
+  express.static(CARPETA_UPLOADS, {
+    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+  }),
+)
 
 // Guardamos el body crudo además del parseado: el webhook de pagos necesita
 // el texto original para verificar la firma del proveedor.
@@ -467,6 +481,8 @@ app.post(
       const configuracion = await crearConfiguracion(parseInt(req.params.id), {
         ...campos,
         mensajesPersonalizados: limpiarMensajes(campos.mensajesPersonalizados),
+        // El logo solo se cambia con los endpoints de /logo, que validan el archivo.
+        logo: undefined,
       })
       res.status(201).json(configuracion)
     } catch (err) {
@@ -530,6 +546,8 @@ app.put(
       await actualizarConfiguracion(parseInt(req.params.id), {
         ...campos,
         mensajesPersonalizados: limpiarMensajes(campos.mensajesPersonalizados),
+        // El logo solo se cambia con los endpoints de /logo, que validan el archivo.
+        logo: undefined,
       }),
     )
   },
@@ -545,11 +563,70 @@ app.delete(
       return res.status(403).json({ error: 'No autorizado' })
     }
 
+    const configuracion = await buscarDatosOrganizacionPorId(req.params.id)
     if (!(await eliminarConfiguracion(parseInt(req.params.id)))) {
       return res.status(404).json({ error: 'Configuracion no encontrada' })
     }
+    borrarArchivoLogo(configuracion?.logo)
 
     res.json({ mensaje: 'Configuracion eliminada' })
+  },
+)
+
+// Corre antes de multer: si no tiene permiso o la organización no tiene
+// configuración, se corta sin escribir nada en disco.
+const puedeEditarConfiguracion = async (req, res, next) => {
+  if (!esDeMiOrganizacion(req, req.params.id)) {
+    return res.status(403).json({ error: 'No autorizado' })
+  }
+  if (!(await buscarDatosOrganizacionPorId(req.params.id))) {
+    return res.status(404).json({ error: 'Configuracion no encontrada' })
+  }
+  next()
+}
+
+// POST /api/organizaciones/:id/configuracion/logo - Subir o reemplazar el logo (admin)
+// multipart/form-data con el archivo en el campo "logo". Se guarda en el
+// momento, sin pasar por el PUT de la configuración.
+app.post(
+  '/api/organizaciones/:id/configuracion/logo',
+  verificarToken,
+  verificarAdmin,
+  puedeEditarConfiguracion,
+  subirLogo,
+  async (req, res) => {
+    const anterior = await buscarDatosOrganizacionPorId(req.params.id)
+    const url = `/uploads/logos/${req.file.filename}`
+
+    try {
+      const configuracion = await actualizarConfiguracion(
+        parseInt(req.params.id),
+        { logo: url },
+      )
+      borrarArchivoLogo(anterior?.logo)
+      res.json(configuracion)
+    } catch (err) {
+      // Si no se pudo guardar la URL, el archivo queda huérfano: se borra.
+      borrarArchivoLogo(url)
+      throw err
+    }
+  },
+)
+
+// DELETE /api/organizaciones/:id/configuracion/logo - Quitar el logo (admin)
+app.delete(
+  '/api/organizaciones/:id/configuracion/logo',
+  verificarToken,
+  verificarAdmin,
+  puedeEditarConfiguracion,
+  async (req, res) => {
+    const anterior = await buscarDatosOrganizacionPorId(req.params.id)
+    const configuracion = await actualizarConfiguracion(
+      parseInt(req.params.id),
+      { logo: null },
+    )
+    borrarArchivoLogo(anterior?.logo)
+    res.json(configuracion)
   },
 )
 
@@ -733,7 +810,7 @@ app.post('/api/auth/register', async (req, res) => {
           conexion,
         )
         organizacionId = organizacionNueva.id
-        
+
         await crearConfiguracion(
           organizacionId,
           { nombreApp: organizacion, lugarRetiro: '' },
