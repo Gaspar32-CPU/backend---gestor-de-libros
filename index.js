@@ -836,6 +836,7 @@ app.post(
       autor,
       genero,
       editorial,
+      idioma,
       isbn,
       fecha_pub,
       resumen,
@@ -853,14 +854,15 @@ app.post(
     try {
       const [resultado] = await pool.query(
         `INSERT INTO libros
-         (id_organizacion, titulo, autor, genero, editorial, isbn, fecha_pub, resumen, portada, stock)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_organizacion, titulo, autor, genero, editorial, idioma, isbn, fecha_pub, resumen, portada, stock)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.usuario.organizacionId,
           titulo,
           autor,
           genero,
           editorial ?? null,
+          idioma ?? null,
           isbn ?? null,
           fecha_pub ?? null,
           resumen ?? null,
@@ -892,7 +894,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
   try {
     const { busqueda, genero } = req.query
     let sql = `
-      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.isbn, l.fecha_pub,
+      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.idioma, l.isbn, l.fecha_pub,
              l.resumen, l.portada, l.stock,
              l.stock - COALESCE(p.activos, 0) AS disponibles,
              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
@@ -925,7 +927,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
 app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
   try {
     const [[libro]] = await pool.query(
-      `SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.isbn, l.fecha_pub,
+      `SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.idioma, l.isbn, l.fecha_pub,
               l.resumen, l.portada, l.stock,
               l.stock - COALESCE(p.activos, 0) AS disponibles,
               ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
@@ -1057,6 +1059,7 @@ app.put(
       autor,
       genero,
       editorial,
+      idioma,
       isbn,
       fecha_pub,
       resumen,
@@ -1074,7 +1077,7 @@ app.put(
     try {
       const [resultado] = await pool.query(
         `UPDATE libros
-       SET titulo = ?, autor = ?, genero = ?, editorial = ?, isbn = ?, fecha_pub = ?,
+       SET titulo = ?, autor = ?, genero = ?, editorial = ?, idioma = ?, isbn = ?, fecha_pub = ?,
            resumen = ?, portada = ?, stock = ?
        WHERE id = ? AND id_organizacion = ?`,
         [
@@ -1082,6 +1085,7 @@ app.put(
           autor,
           genero,
           editorial ?? null,
+          idioma ?? null,
           isbn ?? null,
           fecha_pub ?? null,
           resumen ?? null,
