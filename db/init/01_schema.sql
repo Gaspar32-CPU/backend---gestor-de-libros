@@ -225,20 +225,27 @@ CREATE TABLE notificaciones (
 -- en todas las bases, no son datos de prueba.
 -- ---------------------------------------------------------------------
 CREATE TABLE secciones (
-    id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nombre  VARCHAR(100) NOT NULL,
-    orden   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    activo  TINYINT(1) NOT NULL DEFAULT 1,
+    id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nombre       VARCHAR(100) NOT NULL,
+    orden        SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    -- Qué roles pueden elegirla al reportar (el super-admin las ve todas).
+    para_lector  TINYINT(1) NOT NULL DEFAULT 0,
+    para_admin   TINYINT(1) NOT NULL DEFAULT 0,
+    activo       TINYINT(1) NOT NULL DEFAULT 1,
     PRIMARY KEY (id),
     UNIQUE KEY uq_secciones_nombre (nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO secciones (nombre, orden) VALUES
-    ('Catálogo', 1),
-    ('Mis préstamos', 2),
-    ('Reservas', 3),
-    ('Perfil', 4),
-    ('Panel de administración', 5);
+INSERT INTO secciones (nombre, orden, para_lector, para_admin) VALUES
+    ('Catálogo', 1, 1, 1),
+    ('Mis préstamos', 2, 1, 0),
+    ('Reservas', 3, 1, 0),
+    ('Perfil', 4, 1, 0),
+    ('Panel', 5, 0, 1),
+    ('Gestión catálogo', 6, 0, 1),
+    ('Préstamos', 7, 0, 1),
+    ('Usuarios', 8, 0, 1),
+    ('Configuración', 9, 0, 1);
 
 -- ---------------------------------------------------------------------
 -- REPORTES DE PROBLEMAS
@@ -246,14 +253,21 @@ INSERT INTO secciones (nombre, orden) VALUES
 -- la API la exige en todos los nuevos.
 -- ---------------------------------------------------------------------
 CREATE TABLE reportes_problemas (
-    id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_usuario       INT UNSIGNED NOT NULL,
-    id_organizacion  INT UNSIGNED NOT NULL,
-    id_seccion       INT UNSIGNED NULL,
-    id_libro         INT UNSIGNED NULL,
-    descripcion      TEXT NOT NULL,
-    estado           ENUM('abierto','en_revision','resuelto') NOT NULL DEFAULT 'abierto',
-    fecha_reporte    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id                     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_usuario             INT UNSIGNED NOT NULL,
+    id_organizacion        INT UNSIGNED NOT NULL,
+    id_seccion             INT UNSIGNED NULL,
+    id_libro               INT UNSIGNED NULL,
+    descripcion            TEXT NOT NULL,
+    estado                 ENUM('abierto','en_revision','resuelto') NOT NULL DEFAULT 'abierto',
+    -- Registro de Soporte (ver migración 011): quién lo tomó, quién lo
+    -- resolvió y qué se hizo. Solo lo ve el super admin.
+    id_tomado_por          INT UNSIGNED NULL,
+    fecha_tomado           DATETIME NULL,
+    id_resuelto_por        INT UNSIGNED NULL,
+    fecha_resuelto         DATETIME NULL,
+    comentario_resolucion  TEXT NULL,
+    fecha_reporte          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_reportes_org_estado (id_organizacion, estado),
     KEY idx_reportes_usuario (id_usuario),
@@ -266,7 +280,11 @@ CREATE TABLE reportes_problemas (
     CONSTRAINT fk_reportes_libro FOREIGN KEY (id_libro)
         REFERENCES libros(id) ON DELETE SET NULL,
     CONSTRAINT fk_reportes_seccion FOREIGN KEY (id_seccion)
-        REFERENCES secciones(id) ON DELETE RESTRICT
+        REFERENCES secciones(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_reportes_tomado_por FOREIGN KEY (id_tomado_por)
+        REFERENCES usuarios(id) ON DELETE SET NULL,
+    CONSTRAINT fk_reportes_resuelto_por FOREIGN KEY (id_resuelto_por)
+        REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE envios_email (

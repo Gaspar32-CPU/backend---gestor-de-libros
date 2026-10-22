@@ -1613,6 +1613,14 @@ app.delete('/api/prestamos/:id', verificarToken, verificarAdmin)
 // queda afuera: no pertenece a ninguna organización y la tabla la exige.
 const ROLES_QUE_REPORTAN = ['admin', 'lector']
 
+// Qué secciones puede elegir cada rol al reportar. El super-admin las ve
+// todas, para poder filtrar los reportes en Soporte.
+const FILTRO_SECCIONES_POR_ROL = {
+  lector: 'AND para_lector = 1',
+  admin: 'AND para_admin = 1',
+  'super-admin': '',
+}
+
 const verificarPuedeReportar = (req, res, next) => {
   if (!ROLES_QUE_REPORTAN.includes(req.usuario.rol)) {
     return res.status(403).json({
@@ -1623,11 +1631,20 @@ const verificarPuedeReportar = (req, res, next) => {
   next()
 }
 
-// GET /api/secciones - Secciones para el selector de "Reportar un problema"
+// GET /api/secciones - Secciones para el selector, según el rol de quien pide
 app.get('/api/secciones', verificarToken, async (req, res, next) => {
+  const filtro = FILTRO_SECCIONES_POR_ROL[req.usuario.rol]
+
+  if (filtro === undefined) {
+    return res.status(403).json({
+      error: 'sin_permiso',
+      mensaje: 'Tu rol no tiene secciones para reportar.',
+    })
+  }
+
   try {
     const [secciones] = await pool.query(
-      'SELECT id, nombre FROM secciones WHERE activo = 1 ORDER BY orden, nombre',
+      `SELECT id, nombre FROM secciones WHERE activo = 1 ${filtro} ORDER BY orden, nombre`,
     )
     res.json(secciones)
   } catch (err) {
@@ -1658,7 +1675,7 @@ app.post(
 
     try {
       const [[seccion]] = await pool.query(
-        'SELECT id FROM secciones WHERE id = ? AND activo = 1',
+        `SELECT id FROM secciones WHERE id = ? AND activo = 1 ${FILTRO_SECCIONES_POR_ROL[req.usuario.rol]}`,
         [idSeccionNumero],
       )
 
@@ -1683,6 +1700,123 @@ app.post(
         id: resultado.insertId,
         mensaje: '¡Gracias! Recibimos tu reporte.',
       })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+/* ============================================================
+   SOPORTE (super admin)
+   ============================================================ */
+
+// Consulta base de los reportes para Soporte, con quién lo reportó,
+// quién lo tomó y quién lo resolvió.
+const CONSULTA_REPORTES_SOPORTE = `
+  SELECT r.id, r.id_seccion, r.descripcion, r.estado, r.fecha_reporte,
+         CONCAT_WS(' ', u.nombre, u.apellido) AS usuario,
+         u.rol AS rol_usuario,
+         o.nombre AS organizacion,
+         s.nombre AS seccion,
+         IF(ut.id IS NULL, NULL, CONCAT_WS(' ', ut.nombre, ut.apellido)) AS tomado_por,
+         r.fecha_tomado,
+         IF(ur.id IS NULL, NULL, CONCAT_WS(' ', ur.nombre, ur.apellido)) AS resuelto_por,
+         r.fecha_resuelto,
+         r.comentario_resolucion
+  FROM reportes_problemas r
+  JOIN usuarios u ON u.id = r.id_usuario
+  JOIN organizaciones o ON o.id = r.id_organizacion
+  LEFT JOIN secciones s ON s.id = r.id_seccion
+  LEFT JOIN usuarios ut ON ut.id = r.id_tomado_por
+  LEFT JOIN usuarios ur ON ur.id = r.id_resuelto_por`
+
+// GET /api/soporte/reportes - Todos los reportes de todas las organizaciones
+app.get(
+  '/api/soporte/reportes',
+  verificarToken,
+  verificarSuperAdmin,
+  async (req, res, next) => {
+    try {
+      const [reportes] = await pool.query(
+        `${CONSULTA_REPORTES_SOPORTE} ORDER BY r.fecha_reporte DESC, r.id DESC`,
+      )
+      res.json(reportes)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+// PATCH /api/soporte/reportes/:id/estado - Tomar o resolver un reporte
+//   { estado: 'en_revision' }                → "Tomar": solo si está abierto
+//   { estado: 'resuelto', comentario: '...' } → "Resolver": solo si está en curso
+// El UPDATE incluye el estado anterior en el WHERE: si dos super admins
+// tocan el mismo reporte a la vez, solo el primero lo cambia.
+app.patch(
+  '/api/soporte/reportes/:id/estado',
+  verificarToken,
+  verificarSuperAdmin,
+  async (req, res, next) => {
+    const { estado, comentario } = req.body ?? {}
+    const id = Number(req.params.id)
+
+    if (!['en_revision', 'resuelto'].includes(estado)) {
+      return res.status(400).json({
+        error: 'estado_invalido',
+        mensaje: 'El estado tiene que ser en_revision o resuelto.',
+      })
+    }
+
+    const comentarioLimpio = typeof comentario === 'string' ? comentario.trim() : ''
+
+    if (estado === 'resuelto' && !comentarioLimpio) {
+      return res.status(400).json({
+        error: 'campos_vacios',
+        mensaje: 'Contanos qué se hizo para resolverlo.',
+      })
+    }
+
+    try {
+      const [resultado] =
+        estado === 'en_revision'
+          ? await pool.query(
+              `UPDATE reportes_problemas
+               SET estado = 'en_revision', id_tomado_por = ?, fecha_tomado = NOW()
+               WHERE id = ? AND estado = 'abierto'`,
+              [req.usuario.id, id],
+            )
+          : await pool.query(
+              `UPDATE reportes_problemas
+               SET estado = 'resuelto', id_resuelto_por = ?, fecha_resuelto = NOW(),
+                   comentario_resolucion = ?
+               WHERE id = ? AND estado = 'en_revision'`,
+              [req.usuario.id, comentarioLimpio, id],
+            )
+
+      if (resultado.affectedRows === 0) {
+        const [[existe]] = await pool.query(
+          'SELECT id FROM reportes_problemas WHERE id = ?',
+          [id],
+        )
+        if (!existe) {
+          return res
+            .status(404)
+            .json({ error: 'no_encontrado', mensaje: 'Reporte no encontrado.' })
+        }
+        return res.status(409).json({
+          error: 'conflicto',
+          mensaje:
+            estado === 'en_revision'
+              ? 'Este reporte ya lo tomó otra persona.'
+              : 'Este reporte no está en curso: hay que tomarlo antes de resolverlo.',
+        })
+      }
+
+      const [[actualizado]] = await pool.query(
+        `${CONSULTA_REPORTES_SOPORTE} WHERE r.id = ?`,
+        [id],
+      )
+      res.json(actualizado)
     } catch (err) {
       next(err)
     }
