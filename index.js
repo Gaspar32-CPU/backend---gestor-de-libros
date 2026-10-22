@@ -26,6 +26,9 @@ import {
   actualizarPlan,
   eliminarPlan,
   buscarDatosOrganizacionPorId,
+  crearConfiguracion,
+  actualizarConfiguracion,
+  eliminarConfiguracion,
   listarUsuariosTodasOrganizaciones,
 } from './repos.js'
 
@@ -320,16 +323,162 @@ app.delete(
    no el de la configuración.
    ============================================================ */
 
+const COLOR_VALIDO = /^#[0-9a-fA-F]{6}$/
+
+const esEnteroEntre = (valor, min, max) =>
+  Number.isInteger(valor) && valor >= min && valor <= max
+
+const esTextoHasta = (valor, max) =>
+  typeof valor === 'string' && valor.trim() !== '' && valor.length <= max
+
+const validarConfiguracion = (campos) => {
+  const {
+    nombreApp,
+    logo,
+    colorPrimario,
+    colorSecundario,
+    maxLibrosPorUsuario,
+    lugarRetiro,
+    lugarDevolucion,
+    diasPrestamo,
+    permiteExtension,
+    maxExtensiones,
+    diasExtension,
+    congelarUsuarios,
+    diasAtrasoCongelamiento,
+    mensajesPersonalizados,
+  } = campos
+
+  if (nombreApp !== undefined && !esTextoHasta(nombreApp, 150)) {
+    return 'nombreApp debe ser un texto de hasta 150 caracteres'
+  }
+  if (logo !== undefined && logo !== null && !esTextoHasta(logo, 255)) {
+    return 'logo debe ser una URL de hasta 255 caracteres o null'
+  }
+  if (colorPrimario !== undefined && !COLOR_VALIDO.test(colorPrimario)) {
+    return 'colorPrimario debe tener el formato #RRGGBB'
+  }
+  if (
+    colorSecundario !== undefined &&
+    colorSecundario !== null &&
+    !COLOR_VALIDO.test(colorSecundario)
+  ) {
+    return 'colorSecundario debe tener el formato #RRGGBB o ser null'
+  }
+  if (
+    maxLibrosPorUsuario !== undefined &&
+    !esEnteroEntre(maxLibrosPorUsuario, 1, 255)
+  ) {
+    return 'maxLibrosPorUsuario debe ser un entero entre 1 y 255'
+  }
+  if (lugarRetiro !== undefined && !esTextoHasta(lugarRetiro, 150)) {
+    return 'lugarRetiro debe ser un texto de hasta 150 caracteres'
+  }
+  if (
+    lugarDevolucion !== undefined &&
+    lugarDevolucion !== null &&
+    !esTextoHasta(lugarDevolucion, 150)
+  ) {
+    return 'lugarDevolucion debe ser un texto de hasta 150 caracteres o null'
+  }
+  if (diasPrestamo !== undefined && !esEnteroEntre(diasPrestamo, 1, 65535)) {
+    return 'diasPrestamo debe ser un entero mayor a 0'
+  }
+  if (permiteExtension !== undefined && typeof permiteExtension !== 'boolean') {
+    return 'permiteExtension debe ser true o false'
+  }
+  if (maxExtensiones !== undefined && !esEnteroEntre(maxExtensiones, 0, 255)) {
+    return 'maxExtensiones debe ser un entero entre 0 y 255'
+  }
+  if (diasExtension !== undefined && !esEnteroEntre(diasExtension, 1, 65535)) {
+    return 'diasExtension debe ser un entero mayor a 0'
+  }
+  if (congelarUsuarios !== undefined && typeof congelarUsuarios !== 'boolean') {
+    return 'congelarUsuarios debe ser true o false'
+  }
+  if (
+    diasAtrasoCongelamiento !== undefined &&
+    diasAtrasoCongelamiento !== null &&
+    !esEnteroEntre(diasAtrasoCongelamiento, 1, 65535)
+  ) {
+    return 'diasAtrasoCongelamiento debe ser un entero mayor a 0 o null'
+  }
+
+  if (mensajesPersonalizados !== undefined && mensajesPersonalizados !== null) {
+    if (!Array.isArray(mensajesPersonalizados)) {
+      return 'mensajesPersonalizados debe ser un arreglo'
+    }
+    const tipos = new Set()
+    for (const m of mensajesPersonalizados) {
+      if (
+        !m ||
+        !esTextoHasta(m.tipo, 50) ||
+        typeof m.mensaje !== 'string' ||
+        typeof m.activo !== 'boolean'
+      ) {
+        return 'Cada mensaje personalizado debe tener tipo (texto), mensaje (texto) y activo (true/false)'
+      }
+      if (tipos.has(m.tipo)) {
+        return `El tipo de mensaje "${m.tipo}" está repetido`
+      }
+      tipos.add(m.tipo)
+    }
+  }
+
+  return null
+}
+
+const limpiarMensajes = (mensajes) =>
+  Array.isArray(mensajes)
+    ? mensajes.map(({ tipo, mensaje, activo }) => ({ tipo, mensaje, activo }))
+    : mensajes
+
 // POST /api/organizaciones/:id/configuracion - Crear configuración (admin)
 app.post(
   '/api/organizaciones/:id/configuracion',
   verificarToken,
   verificarAdmin,
-  (req, res) => {
+  async (req, res) => {
     if (!esDeMiOrganizacion(req, req.params.id)) {
       return res.status(403).json({ error: 'No autorizado' })
     }
-    sinImplementar(req, res)
+
+    const campos = req.body ?? {}
+
+    if (!campos.nombreApp || !campos.lugarRetiro) {
+      return res.status(400).json({
+        error: 'faltan_campos',
+        mensaje: 'Faltan campos obligatorios: nombreApp, lugarRetiro',
+      })
+    }
+
+    const errorValidacion = validarConfiguracion(campos)
+    if (errorValidacion) {
+      return res
+        .status(400)
+        .json({ error: 'datos_invalidos', mensaje: errorValidacion })
+    }
+
+    if (!(await buscarOrganizacionPorId(req.params.id))) {
+      return res.status(404).json({ error: 'Organizacion no encontrada' })
+    }
+
+    try {
+      const configuracion = await crearConfiguracion(parseInt(req.params.id), {
+        ...campos,
+        mensajesPersonalizados: limpiarMensajes(campos.mensajesPersonalizados),
+      })
+      res.status(201).json(configuracion)
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({
+          error: 'configuracion_existente',
+          mensaje:
+            'La organización ya tiene configuración. Usá PUT para editarla.',
+        })
+      }
+      throw err
+    }
   },
 )
 
@@ -354,15 +503,35 @@ app.get(
 )
 
 // PUT /api/organizaciones/:id/configuracion - Editar configuración (admin)
+// Es parcial: solo se cambian los campos que vienen en el body.
 app.put(
   '/api/organizaciones/:id/configuracion',
   verificarToken,
   verificarAdmin,
-  (req, res) => {
+  async (req, res) => {
     if (!esDeMiOrganizacion(req, req.params.id)) {
       return res.status(403).json({ error: 'No autorizado' })
     }
-    sinImplementar(req, res)
+
+    const campos = req.body ?? {}
+
+    const errorValidacion = validarConfiguracion(campos)
+    if (errorValidacion) {
+      return res
+        .status(400)
+        .json({ error: 'datos_invalidos', mensaje: errorValidacion })
+    }
+
+    if (!(await buscarDatosOrganizacionPorId(req.params.id))) {
+      return res.status(404).json({ error: 'Configuracion no encontrada' })
+    }
+
+    res.json(
+      await actualizarConfiguracion(parseInt(req.params.id), {
+        ...campos,
+        mensajesPersonalizados: limpiarMensajes(campos.mensajesPersonalizados),
+      }),
+    )
   },
 )
 
@@ -371,11 +540,16 @@ app.delete(
   '/api/organizaciones/:id/configuracion',
   verificarToken,
   verificarAdmin,
-  (req, res) => {
+  async (req, res) => {
     if (!esDeMiOrganizacion(req, req.params.id)) {
       return res.status(403).json({ error: 'No autorizado' })
     }
-    sinImplementar(req, res)
+
+    if (!(await eliminarConfiguracion(parseInt(req.params.id)))) {
+      return res.status(404).json({ error: 'Configuracion no encontrada' })
+    }
+
+    res.json({ mensaje: 'Configuracion eliminada' })
   },
 )
 
@@ -559,6 +733,12 @@ app.post('/api/auth/register', async (req, res) => {
           conexion,
         )
         organizacionId = organizacionNueva.id
+        
+        await crearConfiguracion(
+          organizacionId,
+          { nombreApp: organizacion, lugarRetiro: '' },
+          conexion,
+        )
       } else {
         organizacionId = organizacionExistente.id
       }

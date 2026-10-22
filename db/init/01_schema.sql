@@ -51,6 +51,7 @@ CREATE TABLE configuraciones (
     color_secundario          CHAR(7),
     max_libros_por_usuario    TINYINT UNSIGNED NOT NULL DEFAULT 3,
     lugar_retiro              VARCHAR(150) NOT NULL,
+    lugar_devolucion          VARCHAR(150),
     dias_prestamo             SMALLINT UNSIGNED NOT NULL DEFAULT 30,
     permite_extension         TINYINT(1) NOT NULL DEFAULT 1,
     max_extensiones           TINYINT UNSIGNED NOT NULL DEFAULT 2,
