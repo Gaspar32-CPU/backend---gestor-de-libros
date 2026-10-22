@@ -1,10 +1,10 @@
 -- Datos de prueba (solo desarrollo)
 SET NAMES utf8mb4;
 
-INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios, limite_libros, funcionalidades) VALUES
-  ('Básico',   'Para bibliotecas chicas',   0.00, 100,  500,  '{"reservas": false, "reportes": false}'),
-  ('Estándar', 'Uso institucional',        49.00, 500,  5000, '{"reservas": true,  "reportes": false}'),
-  ('Premium',  'Sin límites prácticos',    99.00, 5000, 50000,'{"reservas": true,  "reportes": true}');
+INSERT INTO planes (nombre, descripcion, precio_mensual, limite_usuarios) VALUES
+  ('Básico',   'Para bibliotecas chicas',   0.00, 100),
+  ('Estándar', 'Uso institucional',        49.00, 500),
+  ('Premium',  'Sin límites prácticos',    99.00, 5000);
 
 INSERT INTO organizaciones (nombre, id_plan, dominio, expiracion_suscripcion) VALUES
   ('Anima BT',    2, '@anima.edu.uy',       DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
@@ -12,12 +12,28 @@ INSERT INTO organizaciones (nombre, id_plan, dominio, expiracion_suscripcion) VA
   ('Anima btt',   2, '@test.com',           '2026-10-08');
 
 INSERT INTO configuraciones (id_organizacion, nombre_app, logo, color_primario, color_secundario,
-                             max_libros_por_usuario, lugar_retiro, dias_prestamo,
-                             permite_extension, max_extensiones, dias_extension, congelar_usuarios) VALUES
-  (1, 'Biblioteca Anima BT',    NULL, '#1D4ED8', '#93C5FD', 3, 'Sala de tutores',  30, 1, 2, 30, 0),
-  (2, 'Biblioteca Providencia', NULL, '#1a1c20', '#bccee2', 3, 'Sala de dicaprio', 20, 1, 1, 30, 0),
+                             max_libros_por_usuario, lugar_retiro, lugar_devolucion, dias_prestamo,
+                             permite_extension, max_extensiones, dias_extension, congelar_usuarios,
+                             mensajes_personalizados) VALUES
+  -- Anima BT: mensajes personalizados de prueba ("vencido" desactivado y
+  -- "devolucion" sin guardar, para que el front lo complete con el default).
+  (1, 'Biblioteca Anima BT',    NULL, '#1D4ED8', '#93C5FD', 3, 'Sala de tutores', 'Buzón de recepción',
+      30, 1, 2, 30, 0,
+      JSON_ARRAY(
+        JSON_OBJECT('tipo', 'prestamo',
+                    'mensaje', 'Hola {lector}, tu préstamo de "{libro}" está confirmado. Pasá a retirarlo por {lugar_retiro}.',
+                    'activo', TRUE),
+        JSON_OBJECT('tipo', 'recordatorio_vencimiento',
+                    'mensaje', '{lector}, acordate que "{libro}" vence el {fecha_vencimiento}.',
+                    'activo', TRUE),
+        JSON_OBJECT('tipo', 'vencido',
+                    'mensaje', 'El préstamo de "{libro}" venció el {fecha_vencimiento}. Devolvelo en {lugar_devolucion} cuanto antes.',
+                    'activo', FALSE)
+      )),
+  (2, 'Biblioteca Providencia', NULL, '#1a1c20', '#bccee2', 3, 'Sala de dicaprio', NULL,
+      20, 1, 1, 30, 0, NULL),
   (3, 'Biblioteca Anima BTT',   'https://www.ceaosa.com.uy/wp-content/uploads/2021/12/anima.png',
-      '#047857', '#6EE7B7', 2, 'Recepción sede Anima BTT', 15, 1, 1, 30, 0);
+      '#047857', '#6EE7B7', 2, 'Recepción sede Anima BTT', NULL, 15, 1, 1, 30, 0, NULL);
 
 -- Usuarios de prueba (el orden define los id autoincrementales).
 -- Contraseña de todos: "password123"
@@ -92,9 +108,9 @@ INSERT INTO prestamos (id_usuario, id_libro, id_organizacion, fecha_devolucion_e
   (3, 1, 1, DATE_ADD(NOW(), INTERVAL 30 DAY), 'Mostrador principal', 'activo'),
   (3, 2, 1, DATE_SUB(NOW(), INTERVAL 3 DAY),  'Mostrador principal', 'atrasado');
 
-INSERT INTO resenas (id_usuario, id_libro, calificacion, comentario) VALUES
-  (3, 1, 5, 'Excelente, muy recomendable.'),
-  (3, 2, 4, NULL);
+INSERT INTO resenas (id_usuario, id_libro, id_organizacion, calificacion, comentario) VALUES
+  (3, 1, 1, 5, 'Excelente, muy recomendable.'),
+  (3, 2, 1, 4, NULL);
 
 INSERT INTO notificaciones (id_usuario, id_prestamo, tipo, mensaje) VALUES
   (3, 2, 'vencimiento_1_dia', 'Tu préstamo de Fahrenheit 451 está atrasado.'),

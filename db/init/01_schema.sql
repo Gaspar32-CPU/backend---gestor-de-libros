@@ -15,8 +15,6 @@ CREATE TABLE planes (
     descripcion       TEXT,
     precio_mensual    DECIMAL(10,2) NOT NULL,
     limite_usuarios   INT UNSIGNED NOT NULL,
-    limite_libros     INT UNSIGNED NOT NULL,
-    funcionalidades   JSON NOT NULL,
     activo            TINYINT(1) NOT NULL DEFAULT 1,
     PRIMARY KEY (id),
     UNIQUE KEY uq_planes_nombre (nombre)
@@ -51,6 +49,9 @@ CREATE TABLE configuraciones (
     color_secundario          CHAR(7),
     max_libros_por_usuario    TINYINT UNSIGNED NOT NULL DEFAULT 3,
     lugar_retiro              VARCHAR(150) NOT NULL,
+    lugar_devolucion          VARCHAR(150),
+    -- [{ dia: 0-6, abierto, apertura: 'HH:MM', cierre: 'HH:MM' }] (ver migración 009)
+    horarios                  JSON,
     dias_prestamo             SMALLINT UNSIGNED NOT NULL DEFAULT 30,
     permite_extension         TINYINT(1) NOT NULL DEFAULT 1,
     max_extensiones           TINYINT UNSIGNED NOT NULL DEFAULT 2,

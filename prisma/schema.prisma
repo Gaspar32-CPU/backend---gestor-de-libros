@@ -13,8 +13,6 @@ model Plan {
   descripcion     String?        @db.Text
   precio_mensual  Decimal        @db.Decimal(10, 2)
   limite_usuarios Int            @db.UnsignedInt
-  limite_libros   Int            @db.UnsignedInt
-  funcionalidades Json
   activo          Boolean        @default(true)
   organizaciones  Organizacion[]
 
