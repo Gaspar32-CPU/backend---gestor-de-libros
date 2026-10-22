@@ -50,6 +50,7 @@ const configuracionOrganizacionDeDB = (fila) => ({
   maxLibrosPorUsuario: fila.max_libros_por_usuario,
   lugarRetiro: fila.lugar_retiro,
   lugarDevolucion: fila.lugar_devolucion,
+  horarios: fila.horarios,
   diasPrestamo: fila.dias_prestamo,
   permiteExtension: !!fila.permite_extension,
   maxExtensiones: fila.max_extensiones,
@@ -202,6 +203,7 @@ const COLUMNAS_CONFIGURACION = {
   maxLibrosPorUsuario: 'max_libros_por_usuario',
   lugarRetiro: 'lugar_retiro',
   lugarDevolucion: 'lugar_devolucion',
+  horarios: 'horarios',
   diasPrestamo: 'dias_prestamo',
   permiteExtension: 'permite_extension',
   maxExtensiones: 'max_extensiones',
@@ -210,6 +212,10 @@ const COLUMNAS_CONFIGURACION = {
   diasAtrasoCongelamiento: 'dias_atraso_congelamiento',
   mensajesPersonalizados: 'mensajes_personalizados',
 }
+
+// Columnas JSON: mysql2 las devuelve parseadas, pero para escribirlas hay que
+// mandar el texto.
+const CAMPOS_JSON = ['horarios', 'mensajesPersonalizados']
 
 // Pasa los campos recibidos (camelCase) a pares columna/valor. Los que vienen
 // undefined se omiten: en el INSERT toman el DEFAULT de la tabla y en el
@@ -221,7 +227,7 @@ const columnasConfiguracion = (campos) => {
     if (campos[campo] === undefined) continue
     columnas.push(columna)
     valores.push(
-      campo === 'mensajesPersonalizados' && campos[campo] !== null
+      CAMPOS_JSON.includes(campo) && campos[campo] !== null
         ? JSON.stringify(campos[campo])
         : campos[campo],
     )

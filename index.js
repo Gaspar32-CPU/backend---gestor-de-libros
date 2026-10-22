@@ -361,6 +361,7 @@ const validarConfiguracion = (campos) => {
     congelarUsuarios,
     diasAtrasoCongelamiento,
     mensajesPersonalizados,
+    horarios,
   } = campos
 
   if (nombreApp !== undefined && !esTextoHasta(nombreApp, 150)) {
@@ -439,13 +440,53 @@ const validarConfiguracion = (campos) => {
     }
   }
 
+  if (horarios !== undefined && horarios !== null) {
+    if (!Array.isArray(horarios) || horarios.length !== 7) {
+      return 'horarios debe ser un arreglo con los 7 días de la semana'
+    }
+    const dias = new Set()
+    for (const h of horarios) {
+      if (
+        !h ||
+        !esEnteroEntre(h.dia, 0, 6) ||
+        typeof h.abierto !== 'boolean' ||
+        !HORA_VALIDA.test(h.apertura) ||
+        !HORA_VALIDA.test(h.cierre)
+      ) {
+        return 'Cada horario debe tener dia (0-6), abierto (true/false), apertura y cierre (HH:MM)'
+      }
+      if (dias.has(h.dia)) {
+        return `El día ${h.dia} está repetido en horarios`
+      }
+      // "HH:MM" con ceros a la izquierda se puede comparar como texto.
+      if (h.abierto && h.apertura >= h.cierre) {
+        return `En el día ${h.dia} la apertura tiene que ser antes del cierre`
+      }
+      dias.add(h.dia)
+    }
+  }
+
   return null
 }
+
+const HORA_VALIDA = /^([01]\d|2[0-3]):[0-5]\d$/
 
 const limpiarMensajes = (mensajes) =>
   Array.isArray(mensajes)
     ? mensajes.map(({ tipo, mensaje, activo }) => ({ tipo, mensaje, activo }))
     : mensajes
+
+const limpiarHorarios = (horarios) =>
+  Array.isArray(horarios)
+    ? horarios
+        .map(({ dia, abierto, apertura, cierre }) => ({
+          dia,
+          abierto,
+          apertura,
+          cierre,
+        }))
+        .sort((a, b) => a.dia - b.dia)
+    : horarios
 
 // POST /api/organizaciones/:id/configuracion - Crear configuración (admin)
 app.post(
@@ -481,6 +522,7 @@ app.post(
       const configuracion = await crearConfiguracion(parseInt(req.params.id), {
         ...campos,
         mensajesPersonalizados: limpiarMensajes(campos.mensajesPersonalizados),
+        horarios: limpiarHorarios(campos.horarios),
         // El logo solo se cambia con los endpoints de /logo, que validan el archivo.
         logo: undefined,
       })
@@ -546,6 +588,7 @@ app.put(
       await actualizarConfiguracion(parseInt(req.params.id), {
         ...campos,
         mensajesPersonalizados: limpiarMensajes(campos.mensajesPersonalizados),
+        horarios: limpiarHorarios(campos.horarios),
         // El logo solo se cambia con los endpoints de /logo, que validan el archivo.
         logo: undefined,
       }),

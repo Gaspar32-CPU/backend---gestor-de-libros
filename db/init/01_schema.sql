@@ -52,6 +52,8 @@ CREATE TABLE configuraciones (
     max_libros_por_usuario    TINYINT UNSIGNED NOT NULL DEFAULT 3,
     lugar_retiro              VARCHAR(150) NOT NULL,
     lugar_devolucion          VARCHAR(150),
+    -- [{ dia: 0-6, abierto, apertura: 'HH:MM', cierre: 'HH:MM' }] (ver migración 009)
+    horarios                  JSON,
     dias_prestamo             SMALLINT UNSIGNED NOT NULL DEFAULT 30,
     permite_extension         TINYINT(1) NOT NULL DEFAULT 1,
     max_extensiones           TINYINT UNSIGNED NOT NULL DEFAULT 2,
