@@ -1009,7 +1009,11 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
   // "contrasena" (sin repetir).
   const { nombre, apellido, telefono, contrasena } = req.body ?? {}
 
-  if (!nombre?.trim() || !apellido?.trim() || !telefono?.trim()) {
+  if (
+    typeof nombre !== 'string' || !nombre.trim() ||
+    typeof apellido !== 'string' || !apellido.trim() ||
+    typeof telefono !== 'string' || !telefono.trim()
+  ) {
     return res.status(400).json({
       error: 'faltan_campos',
       mensaje: 'Faltan campos obligatorios: nombre, apellido, telefono',
