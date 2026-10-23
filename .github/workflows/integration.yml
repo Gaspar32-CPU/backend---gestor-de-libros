@@ -1,0 +1,41 @@
+name: Integración HTTP y MySQL
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reportes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.0.46
+        env:
+          MYSQL_ROOT_PASSWORD: bookly-ci-ficticia
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pbookly-ci-ficticia"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Ejecutar integración y conservar TAP y JUnit
+        env:
+          BOOKLY_TEST_MYSQL_URL: mysql://root:bookly-ci-ficticia@127.0.0.1:3306
+        run: |
+          mkdir -p evidence/integration
+          node --test --test-concurrency=1 --test-reporter=tap --test-reporter-destination=evidence/integration/results.tap --test-reporter=junit --test-reporter-destination=evidence/integration/results.xml tests/integration/*.test.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resultados-integracion
+          path: evidence/integration/
