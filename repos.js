@@ -214,6 +214,30 @@ export async function actualizarFotoUsuario(id, foto) {
    ORGANIZACIONES
    ============================================================ */
 
+// Para el listado de super-admin: cada organización con su plan y cuántos
+// usuarios tiene. Se arma acá (y no con organizacionDeDB) porque la vista
+// necesita datos de otras tablas.
+export async function listarOrganizaciones() {
+  const [filas] = await pool.query(`
+    SELECT o.id, o.nombre, o.dominio, o.activo, o.expiracion_suscripcion,
+           o.fecha_creacion, p.nombre AS plan,
+           (SELECT COUNT(*) FROM usuarios u WHERE u.id_organizacion = o.id) AS cantidad_usuarios
+    FROM organizaciones o
+    JOIN planes p ON p.id = o.id_plan
+    ORDER BY o.nombre`)
+
+  return filas.map((fila) => ({
+    id: fila.id,
+    nombre: fila.nombre,
+    dominio: fila.dominio,
+    activo: !!fila.activo,
+    plan: fila.plan,
+    expiracion: fila.expiracion_suscripcion,
+    fechaCreacion: fila.fecha_creacion,
+    cantidadUsuarios: Number(fila.cantidad_usuarios),
+  }))
+}
+
 export async function buscarOrganizacionPorId(id) {
   const idNum = parseInt(id, 10)
   if (isNaN(idNum)) return undefined

@@ -4,6 +4,9 @@ import jwt from 'jsonwebtoken'
 import {
   generarTokenCrearContrasena,
   verificarTokenCrearContrasena,
+  generarTokenRestablecerContrasena,
+  verificarTokenRestablecerContrasena,
+  huellaDeContrasena,
 } from '../../services/token.js'
 
 // Secreto ficticio, exclusivo del proceso de pruebas; nunca se lee .env.
@@ -42,4 +45,41 @@ test('UT-BE-010 Rechaza token de sesión como activación', () =>
 test('UT-BE-011 Rechaza token mal formado o vacío', () => {
   assert.equal(verificarTokenCrearContrasena('no-es-un-jwt'), null)
   assert.equal(verificarTokenCrearContrasena(''), null)
+})
+
+const HASH_ACTUAL = '$2b$10$hash-ficticio-de-pruebas-actual'
+const HASH_NUEVO = '$2b$10$hash-ficticio-de-pruebas-nuevo'
+
+test('UT-BE-028 Token de restablecer devuelve id y huella del hash actual', () =>
+  assert.deepEqual(
+    verificarTokenRestablecerContrasena(
+      generarTokenRestablecerContrasena(42, HASH_ACTUAL),
+    ),
+    { id: 42, huella: huellaDeContrasena(HASH_ACTUAL) },
+  ))
+test('UT-BE-029 Token de restablecer vence en 1 hora', () => {
+  const payload = jwt.decode(generarTokenRestablecerContrasena(42, HASH_ACTUAL))
+  assert.equal(payload.exp - payload.iat, 60 * 60)
+})
+test('UT-BE-030 Cambiar la contraseña invalida la huella del link', () => {
+  const { huella } = verificarTokenRestablecerContrasena(
+    generarTokenRestablecerContrasena(42, HASH_ACTUAL),
+  )
+  assert.notEqual(huella, huellaDeContrasena(HASH_NUEVO))
+})
+test('UT-BE-031 Los tokens de crear y restablecer no se intercambian', () => {
+  assert.equal(
+    verificarTokenRestablecerContrasena(generarTokenCrearContrasena(42)),
+    null,
+  )
+  assert.equal(
+    verificarTokenCrearContrasena(
+      generarTokenRestablecerContrasena(42, HASH_ACTUAL),
+    ),
+    null,
+  )
+})
+test('UT-BE-032 La huella no expone el hash de la contraseña', () => {
+  const payload = jwt.decode(generarTokenRestablecerContrasena(42, HASH_ACTUAL))
+  assert.ok(!JSON.stringify(payload).includes(HASH_ACTUAL))
 })

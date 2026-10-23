@@ -19,6 +19,12 @@ function verificarToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    // Los tokens con "proposito" (ej. crear contraseña) no son de sesión
+    if (decoded.proposito) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Token inválido o expirado' })
+    }
     req.usuario = decoded
     next()
   } catch (error) {

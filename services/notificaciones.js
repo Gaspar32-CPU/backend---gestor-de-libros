@@ -414,44 +414,31 @@ export async function notificarRegistro({
   }
 }
 
-/**
- * Se dispara después de un login exitoso: le avisa al usuario que se
- * inició sesión con su cuenta. Por ahora sirve para probar de punta a
- * punta que el envío de emails funciona.
- *
- * No devuelve una promesa a propósito: el envío corre en segundo plano y
- * cualquier error queda capturado acá adentro, así que el login nunca se
- * demora ni falla por culpa de este email.
- *
- * Igual que notificarInvitacion, no inserta fila en `notificaciones`: el
- * ENUM `tipo` es para avisos de actividad de biblioteca.
- */
-export function notificarInicioSesion({ idUsuario, nombre, correo }) {
-  async function enviar() {
-    // Se fija la zona horaria de Uruguay: el servidor puede estar en UTC y
-    // la hora le tiene que tener sentido a quien lee el mail.
-    const fechaHora = new Date().toLocaleString('es-UY', {
-      timeZone: 'America/Montevideo',
-      dateStyle: 'long',
-      timeStyle: 'short',
-    })
+export function notificarRecuperacionContrasena({
+  idUsuario,
+  nombre,
+  correo,
+  tokenRestablecer,
+}) {
+  const link = `${process.env.FRONTEND_URL}/restablecer-contrasena?token=${tokenRestablecer}`
+  const cuerpo = `
+    Hola ${escaparHtml(nombre)}, recibimos un pedido para restablecer la contraseña de tu cuenta de Bookly. Hacé clic en el botón para elegir una nueva.
+    <br /><br />
+    <a href="${link}" style="display:inline-block; background-color:#12A594; color:#FFFFFF; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:bold;">Restablecer mi contraseña</a>
+    <br /><br />
+    El link vence en 1 hora y sirve una sola vez. Si no fuiste vos, ignorá este email: tu contraseña no cambia.
+    <br /><br />
+    Si el botón no funciona, copiá este link en el navegador:<br />
+    <span style="color:#8595A6; font-size:13px;">${link}</span>
+  `
 
-    const cuerpo = `
-      Hola ${escaparHtml(nombre)}, se inició sesión en tu cuenta de Bookly el ${escaparHtml(fechaHora)}.
-      <br /><br />
-      Si fuiste vos, no tenés que hacer nada. Si no reconocés este acceso, avisale al administrador de tu organización.
-    `
-
-    await enviarEmail({
-      para: correo,
-      asunto: 'Nuevo inicio de sesión',
-      html: plantillaEmail({ titulo: 'Nuevo inicio de sesión', cuerpo }),
-    })
-  }
-
-  void enviar().catch((err) => {
+  void enviarEmail({
+    para: correo,
+    asunto: 'Restablecé tu contraseña de Bookly',
+    html: plantillaEmail({ titulo: 'Restablecé tu contraseña', cuerpo }),
+  }).catch((err) => {
     console.error(
-      '[notificaciones] error al avisar el inicio de sesión del usuario',
+      '[notificaciones] error al enviar la recuperación de contraseña del usuario',
       idUsuario,
       '->',
       err,

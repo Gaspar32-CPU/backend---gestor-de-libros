@@ -37,6 +37,7 @@ import {
   actualizarConfiguracion,
   eliminarConfiguracion,
   listarUsuariosTodasOrganizaciones,
+  listarOrganizaciones,
   ROL_DB_A_APP,
 } from './repos.js'
 
@@ -47,11 +48,17 @@ import {
   notificarRegistro,
   notificarExtensionPrestamo,
   notificarDevolucionPrestamo,
+  notificarRetiroLibro,
+  notificarRecuperacionContrasena,
 } from './services/notificaciones.js'
 import {
   generarTokenCrearContrasena,
   verificarTokenCrearContrasena,
+  generarTokenRestablecerContrasena,
+  verificarTokenRestablecerContrasena,
+  huellaDeContrasena,
 } from './services/token.js'
+import { calcularDevolucion } from './services/fechaDevolucion.js'
 
 const app = express()
 const PUERTO = process.env.PORT || 3001
@@ -264,7 +271,13 @@ app.get(
   '/api/organizaciones',
   verificarToken,
   verificarSuperAdmin,
-  sinImplementar,
+  async (req, res, next) => {
+    try {
+      res.json(await listarOrganizaciones())
+    } catch (err) {
+      next(err)
+    }
+  },
 )
 
 // GET /api/organizaciones/:id - Obtener datos de la organización (admin de esa organización)
@@ -1178,7 +1191,81 @@ app.post('/api/auth/logout', (req, res) => {
 })
 
 // POST /api/auth/recuperar - Recuperar contraseña
-app.post('/api/auth/recuperar', sinImplementar)
+app.post('/api/auth/recuperar', async (req, res, next) => {
+  const { correo } = req.body ?? {}
+
+  if (!correo || !EMAIL_VALIDO.test(correo)) {
+    return res.status(400).json({ error: 'El correo no es válido' })
+  }
+
+  try {
+    const usuario = await buscarUsuarioPorCorreo(correo)
+
+    if (usuario?.contrasena) {
+      notificarRecuperacionContrasena({
+        idUsuario: usuario.id,
+        nombre: usuario.nombre,
+        correo: usuario.correo,
+        tokenRestablecer: generarTokenRestablecerContrasena(
+          usuario.id,
+          usuario.contrasena,
+        ),
+      })
+    }
+
+    res.status(200).json({
+      mensaje:
+        'Si el correo tiene una cuenta en Bookly, te enviamos un email para restablecer tu contraseña.',
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+app.post('/api/auth/restablecer-contrasena', async (req, res, next) => {
+  const { token, contrasena, confirmarContrasena } = req.body ?? {}
+
+  if (!token || !contrasena || !confirmarContrasena) {
+    return res.status(400).json({ error: 'Faltan token o contraseña' })
+  }
+
+  if (contrasena !== confirmarContrasena) {
+    return res.status(400).json({ error: 'Las contraseñas no coinciden' })
+  }
+
+  const datosToken = verificarTokenRestablecerContrasena(token)
+  if (!datosToken) {
+    return res.status(401).json({ error: 'El link es inválido o ya venció' })
+  }
+
+  try {
+    const [[usuario]] = await pool.query(
+      'SELECT contrasena FROM usuarios WHERE id = ?',
+      [datosToken.id],
+    )
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'La cuenta ya no existe' })
+    }
+
+    if (
+      !usuario.contrasena ||
+      huellaDeContrasena(usuario.contrasena) !== datosToken.huella
+    ) {
+      return res.status(401).json({ error: 'El link es inválido o ya venció' })
+    }
+
+    const contrasenaHasheada = await bcrypt.hash(contrasena, 10)
+    await pool.query('UPDATE usuarios SET contrasena = ? WHERE id = ?', [
+      contrasenaHasheada,
+      datosToken.id,
+    ])
+
+    res.status(200).json({ mensaje: 'Contraseña actualizada' })
+  } catch (err) {
+    next(err)
+  }
+})
 
 // POST /api/auth/crear-contrasena - Primera contraseña de una cuenta
 // El token viene del link que se manda por email al registrarse (POST
@@ -1616,6 +1703,21 @@ app.get(
   },
 )
 
+async function buscarPrestamoParaTabla(prestamoId, organizacionId) {
+  const [[prestamo]] = await pool.query(
+    `SELECT p.id, p.id_libro, p.id_usuario, u.nombre AS nombre_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
+            p.extensiones_realizadas, p.lugar_retiro, p.estado,
+            l.titulo, l.autor, l.portada, c.max_extensiones
+     FROM prestamos p
+     JOIN libros l ON l.id = p.id_libro
+     JOIN usuarios u ON u.id = p.id_usuario
+     LEFT JOIN configuraciones c ON c.id_organizacion = p.id_organizacion
+     WHERE p.id = ? AND p.id_organizacion = ?`,
+    [prestamoId, organizacionId],
+  )
+  return prestamo
+}
+
 app.patch(
   '/api/prestamos/:id/retirado',
   verificarToken,
@@ -1673,15 +1775,9 @@ app.patch(
         })
       }
 
-      const [[prestamoActualizado]] = await pool.query(
-        `SELECT p.id, p.id_libro, p.id_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
-              p.extensiones_realizadas, p.lugar_retiro, p.estado,
-              l.titulo, l.autor, l.portada
-      FROM prestamos p
-      JOIN libros l ON l.id = p.id_libro
-      WHERE p.id = ? 
-        AND p.id_organizacion = ?`,
-        [prestamoId, organizacionId],
+      const prestamoActualizado = await buscarPrestamoParaTabla(
+        prestamoId,
+        organizacionId,
       )
 
       if (!prestamoActualizado) {
@@ -1699,7 +1795,7 @@ app.patch(
         console.error('Error al notificar retiro del libro:', errorNotificacion)
       }
 
-      res.json({ prestamoActualizado })
+      res.json(prestamoActualizado)
     } catch (err) {
       next(err)
     }
@@ -1844,6 +1940,8 @@ app.patch(
   },
 )
 
+const MAX_PRESTAMOS_ACTIVOS = 5
+
 // POST /api/prestamos - Crear un nuevo préstamo (cualquier usuario autenticado)
 app.post('/api/prestamos', verificarToken, async (req, res, next) => {
   try {
@@ -1865,17 +1963,33 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
         .json({ error: 'ya_prestado', mensaje: 'Ya tenés este libro pedido' })
     }
 
+    const [[{ activos }]] = await pool.query(
+      `SELECT COUNT(*) AS activos FROM prestamos
+       WHERE id_usuario = ?
+         AND estado IN ('pendiente_retiro','activo','atrasado')`,
+      [usuarioId],
+    )
+    if (activos >= MAX_PRESTAMOS_ACTIVOS) {
+      return res.status(409).json({
+        error: 'limite_prestamos',
+        mensaje: `Ya tenés ${MAX_PRESTAMOS_ACTIVOS} libros prestados, que es el máximo. Devolvé alguno para pedir otro.`,
+      })
+    }
+
     // El plazo y el lugar de retiro son configurables por organización
     // (tabla configuraciones), por eso no se reciben del cliente: se buscan acá.
     const [[configuracion]] = await pool.query(
-      'SELECT dias_prestamo, lugar_retiro FROM configuraciones WHERE id_organizacion = ?',
+      `SELECT dias_prestamo, lugar_retiro, lugar_devolucion, horarios,
+              permite_extension, max_extensiones, dias_extension
+       FROM configuraciones WHERE id_organizacion = ?`,
       [req.usuario.organizacionId],
     )
     const diasPrestamo = configuracion?.dias_prestamo ?? 30
     const lugarRetiro = configuracion?.lugar_retiro ?? null
-    const fechaDevolucionEsperada = new Date(
-      Date.now() + diasPrestamo * 24 * 60 * 60 * 1000,
-    )
+    // Si el día que se cumple el plazo la organización está cerrada, la
+    // devolución pasa al próximo día abierto, hasta la hora de cierre.
+    const { fecha: fechaDevolucionEsperada, horario: horarioDevolucion } =
+      calcularDevolucion(new Date(), diasPrestamo, configuracion?.horarios)
 
     // Todo préstamo nuevo arranca pendiente de retiro; el estado lo controla
     // el sistema a partir de acá (retiro, devolución, atraso), no el cliente.
@@ -1900,7 +2014,24 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
       idOrganizacion: req.usuario.organizacionId,
     })
 
-    res.status(201).json({ id: resultado.insertId })
+    res.status(201).json({
+      id: resultado.insertId,
+      fecha_devolucion_esperada: fechaDevolucionEsperada,
+      // { dia, apertura, cierre } del día de devolución; null si la
+      // organización no configuró horarios.
+      horario_devolucion: horarioDevolucion,
+      lugar_retiro: lugarRetiro,
+      // NULL en configuraciones = se devuelve donde se retiró.
+      lugar_devolucion: configuracion?.lugar_devolucion ?? lugarRetiro,
+      dias_prestamo: diasPrestamo,
+      // Semana completa, para que el front calcule cuándo se puede retirar.
+      horarios: configuracion?.horarios ?? null,
+      permite_extension: configuracion
+        ? !!configuracion.permite_extension
+        : false,
+      max_extensiones: configuracion?.max_extensiones ?? 0,
+      dias_extension: configuracion?.dias_extension ?? null,
+    })
   } catch (err) {
     next(err)
   }
@@ -1913,74 +2044,37 @@ app.get('/api/prestamos/:id', verificarToken, verificarAdmin, sinImplementar)
 app.patch(
   '/api/prestamos/:id/devolver',
   verificarToken,
+  verificarAdmin,
   async (req, res, next) => {
     try {
       const prestamoId = req.params.id
       const organizacionId = req.usuario.organizacionId
-      let nuevoEstado = 'devuelto'
 
-      const [[prestamo]] = await pool.query(
-        `SELECT id, estado, id_organizacion FROM prestamos
-       WHERE id = ? AND id_organizacion = ?`,
+      const [resultado] = await pool.query(
+        `UPDATE prestamos SET estado = 'devuelto', fecha_devolucion_real = NOW()
+         WHERE id = ? AND id_organizacion = ? AND estado IN ('activo','atrasado')`,
         [prestamoId, organizacionId],
       )
 
-      if (!prestamo) {
+      const prestamoActualizado = await buscarPrestamoParaTabla(
+        prestamoId,
+        organizacionId,
+      )
+
+      if (!prestamoActualizado) {
         return res
           .status(404)
           .json({ error: 'no_encontrado', mensaje: 'Préstamo no encontrado' })
       }
 
-      if (
-        !['activo', 'atrasado', 'pendiente_retiro'].includes(prestamo.estado)
-      ) {
+      if (resultado.affectedRows === 0) {
         return res.status(409).json({
           error: 'no_disponible',
-          mensaje: 'El préstamo no está disponible',
+          mensaje:
+            prestamoActualizado.estado === 'pendiente_retiro'
+              ? 'El libro todavía no se retiró: el préstamo se cancela, no se devuelve.'
+              : 'El préstamo ya no está activo.',
         })
-      }
-
-      if (prestamo.estado === 'pendiente_retiro') {
-        nuevoEstado = 'cancelado'
-
-        await pool.query(
-          'UPDATE prestamos SET estado = ? WHERE id = ? AND id_organizacion = ?',
-          [nuevoEstado, prestamo.id, organizacionId],
-        )
-
-        const [[prestamoActualizado]] = await pool.query(
-          `SELECT p.id, p.id_libro, p.id_usuario, u.nombre AS nombre_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
-                p.extensiones_realizadas, p.lugar_retiro, p.estado,
-                l.titulo, l.autor, l.portada
-        FROM prestamos p
-        JOIN libros l ON l.id = p.id_libro
-        JOIN usuarios u ON u.id = p.id_usuario
-        WHERE p.id = ? AND p.id_organizacion = ?`,
-          [prestamoId, organizacionId],
-        )
-
-        if (!prestamoActualizado) {
-          return res.status(404).json({ error: 'Préstamo no encontrado' })
-        }
-        return res.json(prestamoActualizado)
-      }
-      await pool.query(
-        `UPDATE prestamos SET estado = ?, fecha_devolucion_real = NOW() WHERE id = ? AND id_organizacion = ? AND estado IN ('activo','atrasado','pendiente_retiro') `,
-        [nuevoEstado, prestamo.id, organizacionId],
-      )
-
-      const [[prestamoActualizado]] = await pool.query(
-        `SELECT p.id, p.id_libro, p.id_usuario, p.fecha_prestamo, p.fecha_devolucion_esperada, p.fecha_devolucion_real,
-              p.extensiones_realizadas, p.lugar_retiro, p.estado,
-              l.titulo, l.autor, l.portada
-      FROM prestamos p
-      JOIN libros l ON l.id = p.id_libro
-      WHERE p.id = ? AND p.id_organizacion = ?`,
-        [prestamoId, organizacionId],
-      )
-
-      if (!prestamoActualizado) {
-        return res.status(404).json({ error: 'Préstamo no encontrado' })
       }
 
       try {
@@ -1995,6 +2089,52 @@ app.patch(
           'Error al notificar devolución de préstamo:',
           errorNotificacion,
         )
+      }
+
+      res.json(prestamoActualizado)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+app.patch(
+  '/api/prestamos/:id/cancelar',
+  verificarToken,
+  async (req, res, next) => {
+    try {
+      const prestamoId = req.params.id
+      const organizacionId = req.usuario.organizacionId
+      const esAdmin = req.usuario.rol === 'admin'
+
+      let sql = `UPDATE prestamos SET estado = 'cancelado'
+                 WHERE id = ? AND id_organizacion = ? AND estado = 'pendiente_retiro'`
+      const params = [prestamoId, organizacionId]
+      if (!esAdmin) {
+        sql += ' AND id_usuario = ?'
+        params.push(req.usuario.id)
+      }
+      const [resultado] = await pool.query(sql, params)
+
+      const prestamoActualizado = await buscarPrestamoParaTabla(
+        prestamoId,
+        organizacionId,
+      )
+
+      if (
+        !prestamoActualizado ||
+        (!esAdmin && prestamoActualizado.id_usuario !== req.usuario.id)
+      ) {
+        return res
+          .status(404)
+          .json({ error: 'no_encontrado', mensaje: 'Préstamo no encontrado' })
+      }
+
+      if (resultado.affectedRows === 0) {
+        return res.status(409).json({
+          error: 'no_cancelable',
+          mensaje: 'Solo se puede cancelar un préstamo antes del retiro.',
+        })
       }
 
       res.json(prestamoActualizado)
@@ -2187,7 +2327,8 @@ app.patch(
       })
     }
 
-    const comentarioLimpio = typeof comentario === 'string' ? comentario.trim() : ''
+    const comentarioLimpio =
+      typeof comentario === 'string' ? comentario.trim() : ''
 
     if (estado === 'resuelto' && !comentarioLimpio) {
       return res.status(400).json({
