@@ -37,6 +37,7 @@ import {
   actualizarConfiguracion,
   eliminarConfiguracion,
   listarUsuariosTodasOrganizaciones,
+  listarOrganizaciones,
   ROL_DB_A_APP,
 } from './repos.js'
 
@@ -264,7 +265,13 @@ app.get(
   '/api/organizaciones',
   verificarToken,
   verificarSuperAdmin,
-  sinImplementar,
+  async (req, res, next) => {
+    try {
+      res.json(await listarOrganizaciones())
+    } catch (err) {
+      next(err)
+    }
+  },
 )
 
 // GET /api/organizaciones/:id - Obtener datos de la organización (admin de esa organización)
