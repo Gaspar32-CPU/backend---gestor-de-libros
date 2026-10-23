@@ -8,7 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:integration": "node --test --test-concurrency=1 tests/integration/*.test.js"
   },
   "repository": {
     "type": "git",
