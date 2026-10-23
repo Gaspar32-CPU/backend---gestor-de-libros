@@ -11,7 +11,7 @@
 // normalizan antes de devolverlas.
 import { pool } from './db.js'
 
-const ROL_DB_A_APP = {
+export const ROL_DB_A_APP = {
   lector: 'lector',
   admin_organizacion: 'admin',
   admin_plataforma: 'super-admin',
@@ -24,6 +24,8 @@ const usuarioDeDB = (fila) => ({
   apellido: fila.apellido,
   nombreCompleto: `${fila.nombre} ${fila.apellido}`,
   correo: fila.email,
+  telefono: fila.telefono,
+  foto: fila.foto,
   contrasena: fila.contrasena,
   fecharegistro: fila.fecha_registro,
   rol: ROL_DB_A_APP[fila.rol] ?? fila.rol,
@@ -165,6 +167,49 @@ export async function actualizarUsuarioPendiente(
   return resultado.affectedRows > 0
 }
 
+// Actualiza los datos de perfil editables desde /api/usuarios/:id (PUT).
+// A propósito no toca correo, rol ni organización: el correo institucional
+// define a qué organización pertenece el usuario (ver nota en Perfil.jsx),
+// y el rol/organización solo deberían cambiar desde una gestión de usuarios
+// explícita de admin, no desde el formulario de "mi perfil".
+// `contrasena` ya debe venir hasheada (ver bcrypt.hash en index.js).
+export async function actualizarUsuario({
+  id,
+  nombre,
+  apellido,
+  telefono,
+  contrasena,
+}) {
+  if (contrasena) {
+    const [resultado] = await pool.query(
+      `UPDATE usuarios SET nombre = ?, apellido = ?, telefono = ?, contrasena = ?
+       WHERE id = ?`,
+      [nombre, apellido, telefono, contrasena, id],
+    )
+    return resultado.affectedRows > 0
+  }
+
+  const [resultado] = await pool.query(
+    `UPDATE usuarios SET nombre = ?, apellido = ?, telefono = ?
+     WHERE id = ?`,
+    [nombre, apellido, telefono, id],
+  )
+  return resultado.affectedRows > 0
+}
+
+// `foto` es la ruta relativa servida desde /uploads (ver multer en index.js),
+// o null para borrarla. Separado de actualizarUsuario() porque el archivo
+// tiene que subirse/borrarse en disco antes de tocar la DB, igual que el
+// logo de organización tiene sus propios endpoints en vez de ir por el PUT
+// genérico.
+export async function actualizarFotoUsuario(id, foto) {
+  const [resultado] = await pool.query(
+    'UPDATE usuarios SET foto = ? WHERE id = ?',
+    [foto, id],
+  )
+  return resultado.affectedRows > 0
+}
+
 /* ============================================================
    ORGANIZACIONES
    ============================================================ */
@@ -293,6 +338,11 @@ export async function buscarOrganizacionPorDominio(dominio) {
   return filas[0] ? organizacionDeDB(filas[0]) : undefined
 }
 
+// Toda organización nace con su configuración: sin ella, la pantalla de
+// configuración da 404 y los préstamos usan valores por defecto. El resto de
+// los campos toma el DEFAULT de la tabla; lugar_retiro es NOT NULL y lo
+// completa el admin después. Pasá la conexión de la transacción para que, si
+// algo falla, no quede una organización sin configuración.
 export async function crearOrganizacion(
   { nombre, idPlan, dominio, expiracion },
   conexion = pool,
@@ -301,6 +351,12 @@ export async function crearOrganizacion(
     `INSERT INTO organizaciones (nombre, id_plan, dominio, activo, expiracion_suscripcion)
      VALUES (?, ?, ?, 1, ?)`,
     [nombre, idPlan, dominio, expiracion],
+  )
+
+  await crearConfiguracion(
+    resultado.insertId,
+    { nombreApp: nombre, lugarRetiro: '' },
+    conexion,
   )
 
   return organizacionDeDB({

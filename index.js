@@ -14,13 +14,15 @@ import {
   subirLogo,
   borrarArchivoLogo,
 } from './middlewares/subirLogo.js'
-import { planesComparativa } from './contenido/planesComparativa.js'
+import { subirFoto, borrarArchivoFoto } from './middlewares/subirFoto.js'
 import {
   buscarUsuarioPorCorreo,
   buscarUsuarioPorId,
   listarUsuarios,
   listarUsuariosPorOrganizacion,
   crearUsuario,
+  actualizarUsuario,
+  actualizarFotoUsuario,
   actualizarUsuarioPendiente,
   buscarOrganizacionPorId,
   buscarOrganizacionPorDominio,
@@ -35,6 +37,7 @@ import {
   actualizarConfiguracion,
   eliminarConfiguracion,
   listarUsuariosTodasOrganizaciones,
+  ROL_DB_A_APP,
 } from './repos.js'
 
 import isbnRoutes from './routes/isbn.routes.js'
@@ -152,15 +155,6 @@ app.post('/api/pagos/webhook', sinImplementar)
 // GET /api/planes - Listar todos los planes (público)
 app.get('/api/planes', async (req, res) => {
   res.json(await listarPlanes())
-})
-
-// GET /api/planes/comparativa - Tabla comparativa de funcionalidades (público)
-// Nota de orden: va ANTES de /api/planes/:id para que Express no interprete
-// "comparativa" como un valor de :id (mismo patrón que /prestamos/mis-prestamos).
-// La comparativa es contenido de marketing fijo: no tiene tabla propia en la
-// DB, así que se sirve desde contenido/planesComparativa.js.
-app.get('/api/planes/comparativa', (req, res) => {
-  res.json(planesComparativa)
 })
 
 // GET /api/planes/:id - Ver un plan específico (público)
@@ -837,12 +831,6 @@ app.post('/api/auth/register', async (req, res) => {
           conexion,
         )
         organizacionId = organizacionNueva.id
-
-        await crearConfiguracion(
-          organizacionId,
-          { nombreApp: organizacion, lugarRetiro: '' },
-          conexion,
-        )
       } else {
         organizacionId = organizacionExistente.id
       }
@@ -990,7 +978,136 @@ app.get('/api/usuarios/:id', verificarToken, async (req, res) => {
 })
 
 // PUT /api/usuarios/:id - Editar un usuario (el propio usuario, o admin de su organización)
-app.put('/api/usuarios/:id', verificarToken, sinImplementar)
+// Solo actualiza datos de perfil (nombre, apellido, teléfono y, opcionalmente,
+// contraseña). El correo, el rol y la organización no se tocan acá: el
+// frontend los muestra como no editables (ver Perfil.jsx) porque cambiarlos
+// tiene implicancias de identidad/organización que no son parte de "editar
+// mi perfil".
+app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
+  const usuario = await buscarUsuarioPorId(req.params.id)
+
+  if (!usuario) {
+    return res.status(404).json({ error: 'Usuario no encontrado' })
+  }
+
+  const esElPropio = req.usuario.id === usuario.id
+  const esAdminDeSuOrg =
+    ['admin', 'super-admin'].includes(req.usuario.rol) &&
+    esDeMiOrganizacion(req, usuario.organizacionId)
+
+  if (!esElPropio && !esAdminDeSuOrg) {
+    return res.status(403).json({ error: 'No autorizado' })
+  }
+
+  // El frontend (perfilService.js) ya valida la confirmación de contraseña
+  // en el cliente antes de llamar a este endpoint, así que acá solo llega
+  // "contrasena" (sin repetir).
+  const { nombre, apellido, telefono, contrasena } = req.body ?? {}
+
+  if (
+    typeof nombre !== 'string' || !nombre.trim() ||
+    typeof apellido !== 'string' || !apellido.trim() ||
+    typeof telefono !== 'string' || !telefono.trim()
+  ) {
+    return res.status(400).json({
+      error: 'faltan_campos',
+      mensaje: 'Faltan campos obligatorios: nombre, apellido, telefono',
+    })
+  }
+
+  try {
+    const contrasenaHasheada = contrasena
+      ? await bcrypt.hash(contrasena, 10)
+      : undefined
+
+    await actualizarUsuario({
+      id: usuario.id,
+      nombre: nombre.trim(),
+      apellido: apellido.trim(),
+      telefono: telefono.trim(),
+      contrasena: contrasenaHasheada,
+    })
+
+    const usuarioActualizado = await buscarUsuarioPorId(usuario.id)
+    const { contrasena: _contrasena, ...usuarioSinContrasena } =
+      usuarioActualizado
+    res.json(usuarioSinContrasena)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// Corre antes de multer: si no tiene permiso o el usuario no existe, se
+// corta sin escribir nada en disco. Mismo criterio que el resto de
+// /api/usuarios/:id: el propio usuario, o un admin de su organización.
+const puedeEditarFotoDe = async (req, res, next) => {
+  const usuario = await buscarUsuarioPorId(req.params.id)
+  if (!usuario) {
+    return res.status(404).json({ error: 'Usuario no encontrado' })
+  }
+
+  const esElPropio = req.usuario.id === usuario.id
+  const esAdminDeSuOrg =
+    ['admin', 'super-admin'].includes(req.usuario.rol) &&
+    esDeMiOrganizacion(req, usuario.organizacionId)
+
+  if (!esElPropio && !esAdminDeSuOrg) {
+    return res.status(403).json({ error: 'No autorizado' })
+  }
+
+  req.usuarioEditado = usuario
+  next()
+}
+
+// POST /api/usuarios/:id/foto - Subir/reemplazar la foto de perfil
+// (el propio usuario, o admin de su organización). Tiene su propio endpoint,
+// igual que el logo de organización, en vez de ir por el PUT genérico: ese
+// recibe JSON, este un archivo multipart.
+app.post(
+  '/api/usuarios/:id/foto',
+  verificarToken,
+  puedeEditarFotoDe,
+  subirFoto,
+  async (req, res, next) => {
+    const url = `/uploads/avatars/${req.file.filename}`
+
+    try {
+      await actualizarFotoUsuario(req.usuarioEditado.id, url)
+      borrarArchivoFoto(req.usuarioEditado.foto)
+
+      const usuarioActualizado = await buscarUsuarioPorId(
+        req.usuarioEditado.id,
+      )
+      const { contrasena, ...usuarioSinContrasena } = usuarioActualizado
+      res.json(usuarioSinContrasena)
+    } catch (err) {
+      // Si no se pudo guardar la URL, el archivo queda huérfano: se borra.
+      borrarArchivoFoto(url)
+      next(err)
+    }
+  },
+)
+
+// DELETE /api/usuarios/:id/foto - Quitar la foto de perfil (volver a iniciales)
+app.delete(
+  '/api/usuarios/:id/foto',
+  verificarToken,
+  puedeEditarFotoDe,
+  async (req, res, next) => {
+    try {
+      await actualizarFotoUsuario(req.usuarioEditado.id, null)
+      borrarArchivoFoto(req.usuarioEditado.foto)
+
+      const usuarioActualizado = await buscarUsuarioPorId(
+        req.usuarioEditado.id,
+      )
+      const { contrasena, ...usuarioSinContrasena } = usuarioActualizado
+      res.json(usuarioSinContrasena)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
 
 // DELETE /api/usuarios/:id - Eliminar un usuario (el propio usuario, o admin de su organización)
 app.delete('/api/usuarios/:id', verificarToken, sinImplementar)
@@ -1889,6 +2006,249 @@ app.patch(
 
 // DELETE /api/prestamos/:id - Eliminar un préstamo (admin)
 app.delete('/api/prestamos/:id', verificarToken, verificarAdmin)
+
+/* ============================================================
+   REPORTES DE PROBLEMAS
+   ============================================================ */
+
+// Pueden reportar el admin de una organización y el lector. El super-admin
+// queda afuera: no pertenece a ninguna organización y la tabla la exige.
+const ROLES_QUE_REPORTAN = ['admin', 'lector']
+
+// Largo máximo de la descripción de un reporte y del comentario con que
+// Soporte lo resuelve. El frontend usa el mismo límite en los textarea.
+const MAX_CARACTERES_REPORTE = 500
+
+// Qué secciones puede elegir cada rol al reportar. El super-admin las ve
+// todas, para poder filtrar los reportes en Soporte.
+const FILTRO_SECCIONES_POR_ROL = {
+  lector: 'AND para_lector = 1',
+  admin: 'AND para_admin = 1',
+  'super-admin': '',
+}
+
+const verificarPuedeReportar = (req, res, next) => {
+  if (!ROLES_QUE_REPORTAN.includes(req.usuario.rol)) {
+    return res.status(403).json({
+      error: 'sin_permiso',
+      mensaje: 'Tu rol no puede enviar reportes.',
+    })
+  }
+  next()
+}
+
+// GET /api/secciones - Secciones para el selector, según el rol de quien pide
+app.get('/api/secciones', verificarToken, async (req, res, next) => {
+  const filtro = FILTRO_SECCIONES_POR_ROL[req.usuario.rol]
+
+  if (filtro === undefined) {
+    return res.status(403).json({
+      error: 'sin_permiso',
+      mensaje: 'Tu rol no tiene secciones para reportar.',
+    })
+  }
+
+  try {
+    const [secciones] = await pool.query(
+      `SELECT id, nombre FROM secciones WHERE activo = 1 ${filtro} ORDER BY orden, nombre`,
+    )
+    res.json(secciones)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /api/reportes - Guardar un reporte (usuario y fecha salen del token y de la base)
+app.post(
+  '/api/reportes',
+  verificarToken,
+  verificarPuedeReportar,
+  async (req, res, next) => {
+    const { idSeccion, descripcion } = req.body ?? {}
+    const idSeccionNumero = Number(idSeccion)
+
+    if (!Number.isInteger(idSeccionNumero) || idSeccionNumero <= 0) {
+      return res
+        .status(400)
+        .json({ error: 'campos_vacios', mensaje: 'Elegí una sección.' })
+    }
+
+    if (typeof descripcion !== 'string' || !descripcion.trim()) {
+      return res
+        .status(400)
+        .json({ error: 'campos_vacios', mensaje: 'Contanos qué pasó.' })
+    }
+
+    if (descripcion.trim().length > MAX_CARACTERES_REPORTE) {
+      return res.status(400).json({
+        error: 'texto_largo',
+        mensaje: `La descripción puede tener hasta ${MAX_CARACTERES_REPORTE} caracteres.`,
+      })
+    }
+
+    try {
+      const [[seccion]] = await pool.query(
+        `SELECT id FROM secciones WHERE id = ? AND activo = 1 ${FILTRO_SECCIONES_POR_ROL[req.usuario.rol]}`,
+        [idSeccionNumero],
+      )
+
+      if (!seccion) {
+        return res.status(400).json({
+          error: 'seccion_invalida',
+          mensaje: 'La sección elegida no existe.',
+        })
+      }
+
+      const [resultado] = await pool.query(
+        'INSERT INTO reportes_problemas (id_usuario, id_organizacion, id_seccion, descripcion) VALUES (?, ?, ?, ?)',
+        [
+          req.usuario.id,
+          req.usuario.organizacionId,
+          idSeccionNumero,
+          descripcion.trim(),
+        ],
+      )
+
+      res.status(201).json({
+        id: resultado.insertId,
+        mensaje: '¡Gracias! Recibimos tu reporte.',
+      })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+/* ============================================================
+   SOPORTE (super admin)
+   ============================================================ */
+
+// Consulta base de los reportes para Soporte, con quién lo reportó,
+// quién lo tomó y quién lo resolvió.
+const CONSULTA_REPORTES_SOPORTE = `
+  SELECT r.id, r.id_seccion, r.descripcion, r.estado, r.fecha_reporte,
+         CONCAT_WS(' ', u.nombre, u.apellido) AS usuario,
+         u.rol AS rol_usuario,
+         o.nombre AS organizacion,
+         s.nombre AS seccion,
+         IF(ut.id IS NULL, NULL, CONCAT_WS(' ', ut.nombre, ut.apellido)) AS tomado_por,
+         r.fecha_tomado,
+         IF(ur.id IS NULL, NULL, CONCAT_WS(' ', ur.nombre, ur.apellido)) AS resuelto_por,
+         r.fecha_resuelto,
+         r.comentario_resolucion
+  FROM reportes_problemas r
+  JOIN usuarios u ON u.id = r.id_usuario
+  JOIN organizaciones o ON o.id = r.id_organizacion
+  LEFT JOIN secciones s ON s.id = r.id_seccion
+  LEFT JOIN usuarios ut ON ut.id = r.id_tomado_por
+  LEFT JOIN usuarios ur ON ur.id = r.id_resuelto_por`
+
+// El rol viene como está en la DB (admin_organizacion): se pasa al nombre
+// que usa la app (admin), igual que en repos.js.
+const reporteSoporteDeDB = (fila) => ({
+  ...fila,
+  rol_usuario: ROL_DB_A_APP[fila.rol_usuario] ?? fila.rol_usuario,
+})
+
+// GET /api/soporte/reportes - Todos los reportes de todas las organizaciones
+app.get(
+  '/api/soporte/reportes',
+  verificarToken,
+  verificarSuperAdmin,
+  async (req, res, next) => {
+    try {
+      const [reportes] = await pool.query(
+        `${CONSULTA_REPORTES_SOPORTE} ORDER BY r.fecha_reporte DESC, r.id DESC`,
+      )
+      res.json(reportes.map(reporteSoporteDeDB))
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+// PATCH /api/soporte/reportes/:id/estado - Tomar o resolver un reporte
+//   { estado: 'en_revision' }                → "Tomar": solo si está abierto
+//   { estado: 'resuelto', comentario: '...' } → "Resolver": solo si está en curso
+// El UPDATE incluye el estado anterior en el WHERE: si dos super admins
+// tocan el mismo reporte a la vez, solo el primero lo cambia.
+app.patch(
+  '/api/soporte/reportes/:id/estado',
+  verificarToken,
+  verificarSuperAdmin,
+  async (req, res, next) => {
+    const { estado, comentario } = req.body ?? {}
+    const id = Number(req.params.id)
+
+    if (!['en_revision', 'resuelto'].includes(estado)) {
+      return res.status(400).json({
+        error: 'estado_invalido',
+        mensaje: 'El estado tiene que ser en_revision o resuelto.',
+      })
+    }
+
+    const comentarioLimpio = typeof comentario === 'string' ? comentario.trim() : ''
+
+    if (estado === 'resuelto' && !comentarioLimpio) {
+      return res.status(400).json({
+        error: 'campos_vacios',
+        mensaje: 'Contanos qué se hizo para resolverlo.',
+      })
+    }
+
+    if (comentarioLimpio.length > MAX_CARACTERES_REPORTE) {
+      return res.status(400).json({
+        error: 'texto_largo',
+        mensaje: `El comentario puede tener hasta ${MAX_CARACTERES_REPORTE} caracteres.`,
+      })
+    }
+
+    try {
+      const [resultado] =
+        estado === 'en_revision'
+          ? await pool.query(
+              `UPDATE reportes_problemas
+               SET estado = 'en_revision', id_tomado_por = ?, fecha_tomado = NOW()
+               WHERE id = ? AND estado = 'abierto'`,
+              [req.usuario.id, id],
+            )
+          : await pool.query(
+              `UPDATE reportes_problemas
+               SET estado = 'resuelto', id_resuelto_por = ?, fecha_resuelto = NOW(),
+                   comentario_resolucion = ?
+               WHERE id = ? AND estado = 'en_revision'`,
+              [req.usuario.id, comentarioLimpio, id],
+            )
+
+      if (resultado.affectedRows === 0) {
+        const [[existe]] = await pool.query(
+          'SELECT id FROM reportes_problemas WHERE id = ?',
+          [id],
+        )
+        if (!existe) {
+          return res
+            .status(404)
+            .json({ error: 'no_encontrado', mensaje: 'Reporte no encontrado.' })
+        }
+        return res.status(409).json({
+          error: 'conflicto',
+          mensaje:
+            estado === 'en_revision'
+              ? 'Este reporte ya lo tomó otra persona.'
+              : 'Este reporte no está en curso: hay que tomarlo antes de resolverlo.',
+        })
+      }
+
+      const [[actualizado]] = await pool.query(
+        `${CONSULTA_REPORTES_SOPORTE} WHERE r.id = ?`,
+        [id],
+      )
+      res.json(reporteSoporteDeDB(actualizado))
+    } catch (err) {
+      next(err)
+    }
+  },
+)
 
 /* ============================================================
    MANEJO DE ERRORES  
