@@ -1427,10 +1427,10 @@ app.post('/api/libros/:id/resenas', verificarToken, async (req, res, next) => {
     })
   }
 
-  if (comentario.trim().length < 100) {
+  if (comentario.trim().length < 50) {
     return res.status(400).json({
       error: 'conflicto',
-      mensaje: 'El comentario debe tener al menos 100 caracteres.',
+      mensaje: 'El comentario debe tener al menos 50 caracteres.',
     })
   }
 
