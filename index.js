@@ -53,6 +53,7 @@ import {
   generarTokenCrearContrasena,
   verificarTokenCrearContrasena,
 } from './services/token.js'
+import { calcularDevolucion } from './services/fechaDevolucion.js'
 
 const app = express()
 const PUERTO = process.env.PORT || 3001
@@ -1875,14 +1876,17 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
     // El plazo y el lugar de retiro son configurables por organización
     // (tabla configuraciones), por eso no se reciben del cliente: se buscan acá.
     const [[configuracion]] = await pool.query(
-      'SELECT dias_prestamo, lugar_retiro FROM configuraciones WHERE id_organizacion = ?',
+      `SELECT dias_prestamo, lugar_retiro, lugar_devolucion, horarios,
+              permite_extension, max_extensiones, dias_extension
+       FROM configuraciones WHERE id_organizacion = ?`,
       [req.usuario.organizacionId],
     )
     const diasPrestamo = configuracion?.dias_prestamo ?? 30
     const lugarRetiro = configuracion?.lugar_retiro ?? null
-    const fechaDevolucionEsperada = new Date(
-      Date.now() + diasPrestamo * 24 * 60 * 60 * 1000,
-    )
+    // Si el día que se cumple el plazo la organización está cerrada, la
+    // devolución pasa al próximo día abierto, hasta la hora de cierre.
+    const { fecha: fechaDevolucionEsperada, horario: horarioDevolucion } =
+      calcularDevolucion(new Date(), diasPrestamo, configuracion?.horarios)
 
     // Todo préstamo nuevo arranca pendiente de retiro; el estado lo controla
     // el sistema a partir de acá (retiro, devolución, atraso), no el cliente.
@@ -1907,7 +1911,22 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
       idOrganizacion: req.usuario.organizacionId,
     })
 
-    res.status(201).json({ id: resultado.insertId })
+    res.status(201).json({
+      id: resultado.insertId,
+      fecha_devolucion_esperada: fechaDevolucionEsperada,
+      // { dia, apertura, cierre } del día de devolución; null si la
+      // organización no configuró horarios.
+      horario_devolucion: horarioDevolucion,
+      lugar_retiro: lugarRetiro,
+      // NULL en configuraciones = se devuelve donde se retiró.
+      lugar_devolucion: configuracion?.lugar_devolucion ?? lugarRetiro,
+      dias_prestamo: diasPrestamo,
+      // Semana completa, para que el front calcule cuándo se puede retirar.
+      horarios: configuracion?.horarios ?? null,
+      permite_extension: configuracion ? !!configuracion.permite_extension : false,
+      max_extensiones: configuracion?.max_extensiones ?? 0,
+      dias_extension: configuracion?.dias_extension ?? null,
+    })
   } catch (err) {
     next(err)
   }
