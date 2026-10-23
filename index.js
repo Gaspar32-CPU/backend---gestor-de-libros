@@ -37,6 +37,7 @@ import {
   actualizarConfiguracion,
   eliminarConfiguracion,
   listarUsuariosTodasOrganizaciones,
+  ROL_DB_A_APP,
 } from './repos.js'
 
 import isbnRoutes from './routes/isbn.routes.js'
@@ -2014,6 +2015,10 @@ app.delete('/api/prestamos/:id', verificarToken, verificarAdmin)
 // queda afuera: no pertenece a ninguna organización y la tabla la exige.
 const ROLES_QUE_REPORTAN = ['admin', 'lector']
 
+// Largo máximo de la descripción de un reporte y del comentario con que
+// Soporte lo resuelve. El frontend usa el mismo límite en los textarea.
+const MAX_CARACTERES_REPORTE = 500
+
 // Qué secciones puede elegir cada rol al reportar. El super-admin las ve
 // todas, para poder filtrar los reportes en Soporte.
 const FILTRO_SECCIONES_POR_ROL = {
@@ -2074,6 +2079,13 @@ app.post(
         .json({ error: 'campos_vacios', mensaje: 'Contanos qué pasó.' })
     }
 
+    if (descripcion.trim().length > MAX_CARACTERES_REPORTE) {
+      return res.status(400).json({
+        error: 'texto_largo',
+        mensaje: `La descripción puede tener hasta ${MAX_CARACTERES_REPORTE} caracteres.`,
+      })
+    }
+
     try {
       const [[seccion]] = await pool.query(
         `SELECT id FROM secciones WHERE id = ? AND activo = 1 ${FILTRO_SECCIONES_POR_ROL[req.usuario.rol]}`,
@@ -2131,6 +2143,13 @@ const CONSULTA_REPORTES_SOPORTE = `
   LEFT JOIN usuarios ut ON ut.id = r.id_tomado_por
   LEFT JOIN usuarios ur ON ur.id = r.id_resuelto_por`
 
+// El rol viene como está en la DB (admin_organizacion): se pasa al nombre
+// que usa la app (admin), igual que en repos.js.
+const reporteSoporteDeDB = (fila) => ({
+  ...fila,
+  rol_usuario: ROL_DB_A_APP[fila.rol_usuario] ?? fila.rol_usuario,
+})
+
 // GET /api/soporte/reportes - Todos los reportes de todas las organizaciones
 app.get(
   '/api/soporte/reportes',
@@ -2141,7 +2160,7 @@ app.get(
       const [reportes] = await pool.query(
         `${CONSULTA_REPORTES_SOPORTE} ORDER BY r.fecha_reporte DESC, r.id DESC`,
       )
-      res.json(reportes)
+      res.json(reportes.map(reporteSoporteDeDB))
     } catch (err) {
       next(err)
     }
@@ -2174,6 +2193,13 @@ app.patch(
       return res.status(400).json({
         error: 'campos_vacios',
         mensaje: 'Contanos qué se hizo para resolverlo.',
+      })
+    }
+
+    if (comentarioLimpio.length > MAX_CARACTERES_REPORTE) {
+      return res.status(400).json({
+        error: 'texto_largo',
+        mensaje: `El comentario puede tener hasta ${MAX_CARACTERES_REPORTE} caracteres.`,
       })
     }
 
@@ -2217,7 +2243,7 @@ app.patch(
         `${CONSULTA_REPORTES_SOPORTE} WHERE r.id = ?`,
         [id],
       )
-      res.json(actualizado)
+      res.json(reporteSoporteDeDB(actualizado))
     } catch (err) {
       next(err)
     }

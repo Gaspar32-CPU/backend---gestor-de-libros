@@ -11,7 +11,7 @@
 // normalizan antes de devolverlas.
 import { pool } from './db.js'
 
-const ROL_DB_A_APP = {
+export const ROL_DB_A_APP = {
   lector: 'lector',
   admin_organizacion: 'admin',
   admin_plataforma: 'super-admin',
