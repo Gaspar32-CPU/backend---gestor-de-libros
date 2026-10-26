@@ -1146,6 +1146,14 @@ app.post('/api/auth/login', async (req, res) => {
     })
   }
 
+  if (usuarioElegido.activo === "INACTIVO") {
+    return res.status(401).json({
+      code: 'USUARIO_INACTIVO',
+      message: 'El usuario no está activo',
+    })
+  }
+  
+
   // Cuenta (registrada o invitada por un admin) que todavía no pasó por
   // /auth/crear-contrasena: no hay hash contra el cual comparar.
   if (!usuarioElegido.contrasena) {
