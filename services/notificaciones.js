@@ -26,9 +26,9 @@ async function obtenerDatosPrestamo({
 }) {
   const [[[libro]], [[usuario]], [admins], [[prestamo]]] = await Promise.all([
     pool.query('SELECT titulo FROM libros WHERE id = ?', [idLibro]),
-    pool.query('SELECT nombre, email FROM usuarios WHERE id = ?', [idUsuario]),
+    pool.query('SELECT nombre, email, activo, notificaciones_activadas FROM usuarios WHERE id = ?', [idUsuario]),
     pool.query(
-      "SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion'",
+      "SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion' AND activo = 1 AND notificaciones_activadas = 1",
       [idOrganizacion],
     ),
     pool.query(
@@ -43,6 +43,14 @@ async function obtenerDatosPrestamo({
     admins,
     prestamo,
   }
+}
+
+/**
+ * El usuario solo recibe avisos si sigue activo y no los desactivó.
+ * Si no se encontró el usuario, tampoco se le avisa.
+ */
+function quiereNotificaciones(usuario) {
+  return Boolean(usuario?.notificaciones_activadas && usuario?.activo)
 }
 
 /**
@@ -158,7 +166,7 @@ export async function notificarExtensionPrestamo({
     )
   }
 
-  if (usuario?.email) {
+  if (usuario?.email && quiereNotificaciones(usuario)) {
     envios.push(
       await crearEnvio({
         idUsuario,
@@ -187,6 +195,10 @@ export async function notificarRetiroLibro({
     idUsuario,
     idOrganizacion,
   })
+
+  if (!quiereNotificaciones(usuario)) {
+    return
+  }
 
   const fechaLimite = prestamo?.fecha_devolucion_esperada
     ? new Date(prestamo.fecha_devolucion_esperada).toLocaleDateString()
@@ -238,6 +250,11 @@ export async function notificarDevolucionPrestamo({
     idUsuario,
     idOrganizacion,
   })
+
+  if (!quiereNotificaciones(usuario)) {
+    return
+  }
+
   const link = `${process.env.FRONTEND_URL}/libro/${idLibro}`
 
   const mensajeParaSolicitante = `Un/a administrador de tu organización confirmó la devolución de "${tituloLibro}". Ingresá a ${link} para dejar tu reseña.`
@@ -315,7 +332,7 @@ export async function notificarNuevoPrestamo({
   // El solicitante también es parte del RF de notificaciones ("al generar
   // un préstamo"): además del aviso al admin para que prepare el libro,
   // el usuario recibe la confirmación de que su pedido quedó registrado.
-  if (usuario?.email) {
+  if (usuario?.email && quiereNotificaciones(usuario)) {
     envios.push(
       await crearEnvio({
         idUsuario,

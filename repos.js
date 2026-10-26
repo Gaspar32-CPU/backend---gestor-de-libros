@@ -26,6 +26,7 @@ const usuarioDeDB = (fila) => ({
   correo: fila.email,
   telefono: fila.telefono,
   foto: fila.foto,
+  notificacionesActivadas: fila.notificaciones_activadas === 1 ? 'TRUE' : 'FALSE',
   contrasena: fila.contrasena,
   fecharegistro: fila.fecha_registro,
   rol: ROL_DB_A_APP[fila.rol] ?? fila.rol,
@@ -179,20 +180,21 @@ export async function actualizarUsuario({
   apellido,
   telefono,
   contrasena,
+  notificacionesActivadas
 }) {
   if (contrasena) {
     const [resultado] = await pool.query(
-      `UPDATE usuarios SET nombre = ?, apellido = ?, telefono = ?, contrasena = ?
+      `UPDATE usuarios SET nombre = ?, apellido = ?, telefono = ?, contrasena = ?, notificaciones_activadas = ?
        WHERE id = ?`,
-      [nombre, apellido, telefono, contrasena, id],
+      [nombre, apellido, telefono, contrasena, notificacionesActivadas, id],
     )
     return resultado.affectedRows > 0
   }
 
   const [resultado] = await pool.query(
-    `UPDATE usuarios SET nombre = ?, apellido = ?, telefono = ?
+    `UPDATE usuarios SET nombre = ?, apellido = ?, telefono = ?, notificaciones_activadas = ?
      WHERE id = ?`,
-    [nombre, apellido, telefono, id],
+    [nombre, apellido, telefono, notificacionesActivadas, id],
   )
   return resultado.affectedRows > 0
 }

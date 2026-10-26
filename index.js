@@ -1015,16 +1015,17 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
   // El frontend (perfilService.js) ya valida la confirmación de contraseña
   // en el cliente antes de llamar a este endpoint, así que acá solo llega
   // "contrasena" (sin repetir).
-  const { nombre, apellido, telefono, contrasena } = req.body ?? {}
+  const { nombre, apellido, telefono, contrasena, notificacionesActivadas } = req.body ?? {}
 
   if (
     typeof nombre !== 'string' || !nombre.trim() ||
     typeof apellido !== 'string' || !apellido.trim() ||
-    typeof telefono !== 'string' || !telefono.trim()
+    typeof telefono !== 'string' || !telefono.trim() ||
+    typeof notificacionesActivadas !== 'string' || !notificacionesActivadas.trim()
   ) {
     return res.status(400).json({
       error: 'faltan_campos',
-      mensaje: 'Faltan campos obligatorios: nombre, apellido, telefono',
+      mensaje: 'Faltan campos obligatorios: nombre, apellido, telefono, notificaciones',
     })
   }
 
@@ -1039,6 +1040,7 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
       apellido: apellido.trim(),
       telefono: telefono.trim(),
       contrasena: contrasenaHasheada,
+      notificacionesActivadas: notificacionesActivadas.trim(),
     })
 
     const usuarioActualizado = await buscarUsuarioPorId(usuario.id)
