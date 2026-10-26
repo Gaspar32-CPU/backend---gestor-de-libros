@@ -1413,7 +1413,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
                  GROUP BY id_libro) p ON p.id_libro = l.id
       LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
                  GROUP BY id_libro) r ON r.id_libro = l.id
-      WHERE l.id_organizacion = ?`
+      WHERE l.id_organizacion = ? AND l.eliminado = FALSE`
     const params = [req.usuario.organizacionId]
 
     if (busqueda) {
@@ -1449,7 +1449,7 @@ app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
                   GROUP BY id_libro) p ON p.id_libro = l.id
        LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
                   GROUP BY id_libro) r ON r.id_libro = l.id
-       WHERE l.id = ? AND l.id_organizacion = ?`,
+       WHERE l.id = ? AND l.id_organizacion = ? AND l.eliminado = FALSE`,
       [req.usuario.id, req.params.id, req.usuario.organizacionId],
     )
 
@@ -1588,7 +1588,7 @@ app.put(
         `UPDATE libros
        SET titulo = ?, autor = ?, genero = ?, editorial = ?, idioma = ?, isbn = ?, fecha_pub = ?,
            resumen = ?, portada = ?, stock = ?
-       WHERE id = ? AND id_organizacion = ?`,
+       WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE`,
         [
           titulo,
           autor,
@@ -1630,12 +1630,38 @@ app.delete(
   verificarAdmin,
   async (req, res, next) => {
     try {
+      // Borrado lógico: la fila queda para no perder el historial de
+      // préstamos. Solo se permite si ningún préstamo sigue en curso
+      // (todos devueltos o cancelados, o ninguno).
       const [resultado] = await pool.query(
-        'DELETE FROM libros WHERE id = ? AND id_organizacion = ?',
+        `UPDATE libros
+        SET eliminado = TRUE
+        WHERE id = ?
+          AND id_organizacion = ?
+          AND eliminado = FALSE
+          AND NOT EXISTS (
+            SELECT 1
+            FROM prestamos p
+            WHERE p.id_libro = libros.id
+              AND p.estado NOT IN ('devuelto', 'cancelado')
+          )`,
         [req.params.id, req.usuario.organizacionId],
       )
 
       if (resultado.affectedRows === 0) {
+        const [[libro]] = await pool.query(
+          'SELECT 1 FROM libros WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE',
+          [req.params.id, req.usuario.organizacionId],
+        )
+
+        if (libro) {
+          return res.status(409).json({
+            error: 'libro_con_prestamos',
+            mensaje:
+              'No se puede eliminar: el libro tiene préstamos pendientes de retiro, activos o atrasados.',
+          })
+        }
+
         return res
           .status(404)
           .json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' })
@@ -1643,14 +1669,6 @@ app.delete(
 
       res.status(200).json({ mensaje: 'Libro eliminado' })
     } catch (err) {
-      // El libro tiene préstamos asociados (ON DELETE RESTRICT): no se puede
-      // borrar sin perder el historial, hay que avisarle al admin por qué.
-      if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
-        return res.status(409).json({
-          error: 'libro_con_prestamos',
-          mensaje: 'No se puede eliminar: el libro tiene préstamos asociados.',
-        })
-      }
       next(err)
     }
   },
@@ -1957,6 +1975,16 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
     // El usuario sale del token, no del body: si no, cualquiera podría
     // pedir préstamos a nombre de otro.
     const usuarioId = req.usuario.id
+
+    const [[libro]] = await pool.query(
+      'SELECT 1 FROM libros WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE',
+      [libroId, req.usuario.organizacionId],
+    )
+    if (!libro) {
+      return res
+        .status(404)
+        .json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' })
+    }
 
     const [[existente]] = await pool.query(
       `SELECT 1 FROM prestamos
