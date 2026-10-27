@@ -30,14 +30,12 @@ export type PlanAvgAggregateOutputType = {
   id: number | null
   precio_mensual: runtime.Decimal | null
   limite_usuarios: number | null
-  limite_libros: number | null
 }
 
 export type PlanSumAggregateOutputType = {
   id: number | null
   precio_mensual: runtime.Decimal | null
   limite_usuarios: number | null
-  limite_libros: number | null
 }
 
 export type PlanMinAggregateOutputType = {
@@ -46,7 +44,6 @@ export type PlanMinAggregateOutputType = {
   descripcion: string | null
   precio_mensual: runtime.Decimal | null
   limite_usuarios: number | null
-  limite_libros: number | null
   activo: boolean | null
 }
 
@@ -56,7 +53,6 @@ export type PlanMaxAggregateOutputType = {
   descripcion: string | null
   precio_mensual: runtime.Decimal | null
   limite_usuarios: number | null
-  limite_libros: number | null
   activo: boolean | null
 }
 
@@ -66,8 +62,6 @@ export type PlanCountAggregateOutputType = {
   descripcion: number
   precio_mensual: number
   limite_usuarios: number
-  limite_libros: number
-  funcionalidades: number
   activo: number
   _all: number
 }
@@ -76,14 +70,12 @@ export type PlanAvgAggregateInputType = {
   id?: true
   precio_mensual?: true
   limite_usuarios?: true
-  limite_libros?: true
 }
 
 export type PlanSumAggregateInputType = {
   id?: true
   precio_mensual?: true
   limite_usuarios?: true
-  limite_libros?: true
 }
 
 export type PlanMinAggregateInputType = {
@@ -92,7 +84,6 @@ export type PlanMinAggregateInputType = {
   descripcion?: true
   precio_mensual?: true
   limite_usuarios?: true
-  limite_libros?: true
   activo?: true
 }
 
@@ -102,7 +93,6 @@ export type PlanMaxAggregateInputType = {
   descripcion?: true
   precio_mensual?: true
   limite_usuarios?: true
-  limite_libros?: true
   activo?: true
 }
 
@@ -112,8 +102,6 @@ export type PlanCountAggregateInputType = {
   descripcion?: true
   precio_mensual?: true
   limite_usuarios?: true
-  limite_libros?: true
-  funcionalidades?: true
   activo?: true
   _all?: true
 }
@@ -216,8 +204,6 @@ export type PlanGroupByOutputType = {
   descripcion: string | null
   precio_mensual: runtime.Decimal
   limite_usuarios: number
-  limite_libros: number
-  funcionalidades: runtime.JsonValue
   activo: boolean
   _count: PlanCountAggregateOutputType | null
   _avg: PlanAvgAggregateOutputType | null
@@ -253,8 +239,6 @@ export type PlanWhereInput = {
     | number
     | string
   limite_usuarios?: Prisma.IntFilter<'Plan'> | number
-  limite_libros?: Prisma.IntFilter<'Plan'> | number
-  funcionalidades?: Prisma.JsonFilter<'Plan'>
   activo?: Prisma.BoolFilter<'Plan'> | boolean
   organizaciones?: Prisma.OrganizacionListRelationFilter
 }
@@ -265,8 +249,6 @@ export type PlanOrderByWithRelationInput = {
   descripcion?: Prisma.SortOrderInput | Prisma.SortOrder
   precio_mensual?: Prisma.SortOrder
   limite_usuarios?: Prisma.SortOrder
-  limite_libros?: Prisma.SortOrder
-  funcionalidades?: Prisma.SortOrder
   activo?: Prisma.SortOrder
   organizaciones?: Prisma.OrganizacionOrderByRelationAggregateInput
   _relevance?: Prisma.PlanOrderByRelevanceInput
@@ -287,8 +269,6 @@ export type PlanWhereUniqueInput = Prisma.AtLeast<
       | number
       | string
     limite_usuarios?: Prisma.IntFilter<'Plan'> | number
-    limite_libros?: Prisma.IntFilter<'Plan'> | number
-    funcionalidades?: Prisma.JsonFilter<'Plan'>
     activo?: Prisma.BoolFilter<'Plan'> | boolean
     organizaciones?: Prisma.OrganizacionListRelationFilter
   },
@@ -301,8 +281,6 @@ export type PlanOrderByWithAggregationInput = {
   descripcion?: Prisma.SortOrderInput | Prisma.SortOrder
   precio_mensual?: Prisma.SortOrder
   limite_usuarios?: Prisma.SortOrder
-  limite_libros?: Prisma.SortOrder
-  funcionalidades?: Prisma.SortOrder
   activo?: Prisma.SortOrder
   _count?: Prisma.PlanCountOrderByAggregateInput
   _avg?: Prisma.PlanAvgOrderByAggregateInput
@@ -330,8 +308,6 @@ export type PlanScalarWhereWithAggregatesInput = {
     | number
     | string
   limite_usuarios?: Prisma.IntWithAggregatesFilter<'Plan'> | number
-  limite_libros?: Prisma.IntWithAggregatesFilter<'Plan'> | number
-  funcionalidades?: Prisma.JsonWithAggregatesFilter<'Plan'>
   activo?: Prisma.BoolWithAggregatesFilter<'Plan'> | boolean
 }
 
@@ -340,8 +316,6 @@ export type PlanCreateInput = {
   descripcion?: string | null
   precio_mensual: runtime.Decimal | runtime.DecimalJsLike | number | string
   limite_usuarios: number
-  limite_libros: number
-  funcionalidades: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: boolean
   organizaciones?: Prisma.OrganizacionCreateNestedManyWithoutPlanInput
 }
@@ -352,8 +326,6 @@ export type PlanUncheckedCreateInput = {
   descripcion?: string | null
   precio_mensual: runtime.Decimal | runtime.DecimalJsLike | number | string
   limite_usuarios: number
-  limite_libros: number
-  funcionalidades: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: boolean
   organizaciones?: Prisma.OrganizacionUncheckedCreateNestedManyWithoutPlanInput
 }
@@ -368,8 +340,6 @@ export type PlanUpdateInput = {
     | number
     | string
   limite_usuarios?: Prisma.IntFieldUpdateOperationsInput | number
-  limite_libros?: Prisma.IntFieldUpdateOperationsInput | number
-  funcionalidades?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   organizaciones?: Prisma.OrganizacionUpdateManyWithoutPlanNestedInput
 }
@@ -385,8 +355,6 @@ export type PlanUncheckedUpdateInput = {
     | number
     | string
   limite_usuarios?: Prisma.IntFieldUpdateOperationsInput | number
-  limite_libros?: Prisma.IntFieldUpdateOperationsInput | number
-  funcionalidades?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   organizaciones?: Prisma.OrganizacionUncheckedUpdateManyWithoutPlanNestedInput
 }
@@ -397,8 +365,6 @@ export type PlanCreateManyInput = {
   descripcion?: string | null
   precio_mensual: runtime.Decimal | runtime.DecimalJsLike | number | string
   limite_usuarios: number
-  limite_libros: number
-  funcionalidades: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: boolean
 }
 
@@ -412,8 +378,6 @@ export type PlanUpdateManyMutationInput = {
     | number
     | string
   limite_usuarios?: Prisma.IntFieldUpdateOperationsInput | number
-  limite_libros?: Prisma.IntFieldUpdateOperationsInput | number
-  funcionalidades?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
@@ -428,8 +392,6 @@ export type PlanUncheckedUpdateManyInput = {
     | number
     | string
   limite_usuarios?: Prisma.IntFieldUpdateOperationsInput | number
-  limite_libros?: Prisma.IntFieldUpdateOperationsInput | number
-  funcionalidades?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
@@ -447,8 +409,6 @@ export type PlanCountOrderByAggregateInput = {
   descripcion?: Prisma.SortOrder
   precio_mensual?: Prisma.SortOrder
   limite_usuarios?: Prisma.SortOrder
-  limite_libros?: Prisma.SortOrder
-  funcionalidades?: Prisma.SortOrder
   activo?: Prisma.SortOrder
 }
 
@@ -456,7 +416,6 @@ export type PlanAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   precio_mensual?: Prisma.SortOrder
   limite_usuarios?: Prisma.SortOrder
-  limite_libros?: Prisma.SortOrder
 }
 
 export type PlanMaxOrderByAggregateInput = {
@@ -465,7 +424,6 @@ export type PlanMaxOrderByAggregateInput = {
   descripcion?: Prisma.SortOrder
   precio_mensual?: Prisma.SortOrder
   limite_usuarios?: Prisma.SortOrder
-  limite_libros?: Prisma.SortOrder
   activo?: Prisma.SortOrder
 }
 
@@ -475,7 +433,6 @@ export type PlanMinOrderByAggregateInput = {
   descripcion?: Prisma.SortOrder
   precio_mensual?: Prisma.SortOrder
   limite_usuarios?: Prisma.SortOrder
-  limite_libros?: Prisma.SortOrder
   activo?: Prisma.SortOrder
 }
 
@@ -483,7 +440,6 @@ export type PlanSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   precio_mensual?: Prisma.SortOrder
   limite_usuarios?: Prisma.SortOrder
-  limite_libros?: Prisma.SortOrder
 }
 
 export type PlanScalarRelationFilter = {
@@ -550,8 +506,6 @@ export type PlanCreateWithoutOrganizacionesInput = {
   descripcion?: string | null
   precio_mensual: runtime.Decimal | runtime.DecimalJsLike | number | string
   limite_usuarios: number
-  limite_libros: number
-  funcionalidades: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: boolean
 }
 
@@ -561,8 +515,6 @@ export type PlanUncheckedCreateWithoutOrganizacionesInput = {
   descripcion?: string | null
   precio_mensual: runtime.Decimal | runtime.DecimalJsLike | number | string
   limite_usuarios: number
-  limite_libros: number
-  funcionalidades: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: boolean
 }
 
@@ -604,8 +556,6 @@ export type PlanUpdateWithoutOrganizacionesInput = {
     | number
     | string
   limite_usuarios?: Prisma.IntFieldUpdateOperationsInput | number
-  limite_libros?: Prisma.IntFieldUpdateOperationsInput | number
-  funcionalidades?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
@@ -620,8 +570,6 @@ export type PlanUncheckedUpdateWithoutOrganizacionesInput = {
     | number
     | string
   limite_usuarios?: Prisma.IntFieldUpdateOperationsInput | number
-  limite_libros?: Prisma.IntFieldUpdateOperationsInput | number
-  funcionalidades?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   activo?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
@@ -673,8 +621,6 @@ export type PlanSelect<
     descripcion?: boolean
     precio_mensual?: boolean
     limite_usuarios?: boolean
-    limite_libros?: boolean
-    funcionalidades?: boolean
     activo?: boolean
     organizaciones?: boolean | Prisma.Plan$organizacionesArgs<ExtArgs>
     _count?: boolean | Prisma.PlanCountOutputTypeDefaultArgs<ExtArgs>
@@ -688,8 +634,6 @@ export type PlanSelectScalar = {
   descripcion?: boolean
   precio_mensual?: boolean
   limite_usuarios?: boolean
-  limite_libros?: boolean
-  funcionalidades?: boolean
   activo?: boolean
 }
 
@@ -702,8 +646,6 @@ export type PlanOmit<
   | 'descripcion'
   | 'precio_mensual'
   | 'limite_usuarios'
-  | 'limite_libros'
-  | 'funcionalidades'
   | 'activo',
   ExtArgs['result']['plan']
 >
@@ -730,8 +672,6 @@ export type $PlanPayload<
       descripcion: string | null
       precio_mensual: runtime.Decimal
       limite_usuarios: number
-      limite_libros: number
-      funcionalidades: runtime.JsonValue
       activo: boolean
     },
     ExtArgs['result']['plan']
@@ -1263,8 +1203,6 @@ export interface PlanFieldRefs {
   readonly descripcion: Prisma.FieldRef<'Plan', 'String'>
   readonly precio_mensual: Prisma.FieldRef<'Plan', 'Decimal'>
   readonly limite_usuarios: Prisma.FieldRef<'Plan', 'Int'>
-  readonly limite_libros: Prisma.FieldRef<'Plan', 'Int'>
-  readonly funcionalidades: Prisma.FieldRef<'Plan', 'Json'>
   readonly activo: Prisma.FieldRef<'Plan', 'Boolean'>
 }
 

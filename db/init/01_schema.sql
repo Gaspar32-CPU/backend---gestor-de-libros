@@ -107,7 +107,7 @@ CREATE TABLE libros (
     id_organizacion  INT UNSIGNED NOT NULL,
     titulo           VARCHAR(255) NOT NULL,
     autor            VARCHAR(150) NOT NULL,
-    genero           VARCHAR(100) NOT NULL,
+    generos          JSON NOT NULL,
     editorial        VARCHAR(150),
     isbn             VARCHAR(20),
     fecha_pub        DATE,
@@ -118,7 +118,6 @@ CREATE TABLE libros (
     fecha_creacion   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_libros_org_titulo (id_organizacion, titulo),
-    KEY idx_libros_org_genero (id_organizacion, genero),
     CONSTRAINT fk_libros_org FOREIGN KEY (id_organizacion)
         REFERENCES organizaciones(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

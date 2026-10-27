@@ -1336,6 +1336,16 @@ app.post('/api/auth/crear-contrasena', async (req, res, next) => {
    LIBROS
    ============================================================ */
 
+// Acepta uno o varios géneros (array o string suelto) y devuelve solo los
+// no vacíos, ya sin espacios sobrantes.
+function normalizarGeneros(valor) {
+  const lista = Array.isArray(valor) ? valor : [valor]
+  return lista
+    .filter((g) => typeof g === 'string')
+    .map((g) => g.trim())
+    .filter(Boolean)
+}
+
 // POST /api/libros - Crear un nuevo libro (admin)
 app.post(
   '/api/libros',
@@ -1345,7 +1355,7 @@ app.post(
     const {
       titulo,
       autor,
-      genero,
+      generos,
       editorial,
       idioma,
       isbn,
@@ -1355,23 +1365,24 @@ app.post(
       stock,
     } = req.body ?? {}
 
-    if (!titulo || !autor || !genero) {
+    const listaGeneros = normalizarGeneros(generos)
+    if (!titulo || !autor || listaGeneros.length === 0) {
       return res.status(400).json({
         error: 'faltan_campos',
-        mensaje: 'Faltan campos obligatorios: titulo, autor, genero',
+        mensaje: 'Faltan campos obligatorios: titulo, autor, generos',
       })
     }
 
     try {
       const [resultado] = await pool.query(
         `INSERT INTO libros
-         (id_organizacion, titulo, autor, genero, editorial, idioma, isbn, fecha_pub, resumen, portada, stock)
+         (id_organizacion, titulo, autor, generos, editorial, idioma, isbn, fecha_pub, resumen, portada, stock)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.usuario.organizacionId,
           titulo,
           autor,
-          genero,
+          JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
           isbn ?? null,
@@ -1403,9 +1414,9 @@ app.post(
 // GET /api/libros - Listar todos los libros (cualquier usuario autenticado)
 app.get('/api/libros', verificarToken, async (req, res, next) => {
   try {
-    const { busqueda, genero } = req.query
+    const { busqueda, generos } = req.query
     let sql = `
-      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.idioma, l.isbn, l.fecha_pub,
+      SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
              l.resumen, l.portada, l.stock,
              l.stock - COALESCE(p.activos, 0) AS disponibles,
              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
@@ -1422,9 +1433,10 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
       sql += ' AND (l.titulo LIKE ? OR l.autor LIKE ?)'
       params.push(`%${busqueda}%`, `%${busqueda}%`)
     }
-    if (genero) {
-      sql += ' AND l.genero = ?'
-      params.push(genero)
+    const filtroGeneros = normalizarGeneros(generos)
+    if (filtroGeneros.length > 0) {
+      sql += ' AND JSON_OVERLAPS(l.generos, CAST(? AS JSON))'
+      params.push(JSON.stringify(filtroGeneros))
     }
 
     const [libros] = await pool.query(sql, params)
@@ -1438,7 +1450,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
 app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
   try {
     const [[libro]] = await pool.query(
-      `SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.idioma, l.isbn, l.fecha_pub,
+      `SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
               l.resumen, l.portada, l.stock,
               l.stock - COALESCE(p.activos, 0) AS disponibles,
               ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
@@ -1568,7 +1580,7 @@ app.put(
     const {
       titulo,
       autor,
-      genero,
+      generos,
       editorial,
       idioma,
       isbn,
@@ -1578,23 +1590,24 @@ app.put(
       stock,
     } = req.body ?? {}
 
-    if (!titulo || !autor || !genero) {
+    const listaGeneros = normalizarGeneros(generos)
+    if (!titulo || !autor || listaGeneros.length === 0) {
       return res.status(400).json({
         error: 'faltan_campos',
-        mensaje: 'Faltan campos obligatorios: titulo, autor, genero',
+        mensaje: 'Faltan campos obligatorios: titulo, autor, generos',
       })
     }
 
     try {
       const [resultado] = await pool.query(
         `UPDATE libros
-       SET titulo = ?, autor = ?, genero = ?, editorial = ?, idioma = ?, isbn = ?, fecha_pub = ?,
+       SET titulo = ?, autor = ?, generos = ?, editorial = ?, idioma = ?, isbn = ?, fecha_pub = ?,
            resumen = ?, portada = ?, stock = ?
        WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE`,
         [
           titulo,
           autor,
-          genero,
+          JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
           isbn ?? null,

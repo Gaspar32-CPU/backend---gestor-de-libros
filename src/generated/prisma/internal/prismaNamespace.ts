@@ -1197,8 +1197,6 @@ export const PlanScalarFieldEnum = {
   descripcion: 'descripcion',
   precio_mensual: 'precio_mensual',
   limite_usuarios: 'limite_usuarios',
-  limite_libros: 'limite_libros',
-  funcionalidades: 'funcionalidades',
   activo: 'activo',
 } as const
 
@@ -1241,7 +1239,7 @@ export const LibroScalarFieldEnum = {
   id_organizacion: 'id_organizacion',
   titulo: 'titulo',
   autor: 'autor',
-  genero: 'genero',
+  generos: 'generos',
   editorial: 'editorial',
   isbn: 'isbn',
   fecha_pub: 'fecha_pub',
@@ -1322,6 +1320,7 @@ export const ResenasScalarFieldEnum = {
   id: 'id',
   id_usuario: 'id_usuario',
   id_libro: 'id_libro',
+  id_organizacion: 'id_organizacion',
   calificacion: 'calificacion',
   comentario: 'comentario',
   fecha: 'fecha',
@@ -1366,22 +1365,6 @@ export const NullableJsonNullValueInput = {
 export type NullableJsonNullValueInput =
   (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
-export const JsonNullValueFilter = {
-  DbNull: DbNull,
-  JsonNull: JsonNull,
-  AnyNull: AnyNull,
-} as const
-
-export type JsonNullValueFilter =
-  (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
-
-export const QueryMode = {
-  default: 'default',
-  insensitive: 'insensitive',
-} as const
-
-export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
-
 export const NullsOrder = {
   first: 'first',
   last: 'last',
@@ -1417,10 +1400,25 @@ export const UsuarioOrderByRelevanceFieldEnum = {
 export type UsuarioOrderByRelevanceFieldEnum =
   (typeof UsuarioOrderByRelevanceFieldEnum)[keyof typeof UsuarioOrderByRelevanceFieldEnum]
 
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull,
+} as const
+
+export type JsonNullValueFilter =
+  (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
+
+export const QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive',
+} as const
+
+export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
 export const LibroOrderByRelevanceFieldEnum = {
   titulo: 'titulo',
   autor: 'autor',
-  genero: 'genero',
   editorial: 'editorial',
   isbn: 'isbn',
   resumen: 'resumen',
@@ -1498,22 +1496,6 @@ export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<
 >
 
 /**
- * Reference to a field of type 'Json'
- */
-export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<
-  $PrismaModel,
-  'Json'
->
-
-/**
- * Reference to a field of type 'QueryMode'
- */
-export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<
-  $PrismaModel,
-  'QueryMode'
->
-
-/**
  * Reference to a field of type 'Boolean'
  */
 export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<
@@ -1535,6 +1517,22 @@ export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<
 export type EnumRolFieldRefInput<$PrismaModel> = FieldRefInputType<
   $PrismaModel,
   'Rol'
+>
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<
+  $PrismaModel,
+  'Json'
+>
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<
+  $PrismaModel,
+  'QueryMode'
 >
 
 /**

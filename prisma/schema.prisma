@@ -68,7 +68,7 @@ model Libro {
   id_organizacion    Int                  @db.UnsignedInt
   titulo             String               @db.VarChar(255)
   autor              String               @db.VarChar(150)
-  genero             String               @db.VarChar(100)
+  generos            Json                 @db.Json
   editorial          String?              @db.VarChar(150)
   isbn               String?              @db.VarChar(20)
   fecha_pub          DateTime?            @db.Date
@@ -82,7 +82,6 @@ model Libro {
   resenas            resenas[]
   reservas           reservas[]
 
-  @@index([id_organizacion, genero], map: "idx_libros_org_genero")
   @@index([id_organizacion, titulo], map: "idx_libros_org_titulo")
   @@map("libros")
 }

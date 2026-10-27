@@ -43,7 +43,6 @@ export type LibroMinAggregateOutputType = {
   id_organizacion: number | null
   titulo: string | null
   autor: string | null
-  genero: string | null
   editorial: string | null
   isbn: string | null
   fecha_pub: Date | null
@@ -58,7 +57,6 @@ export type LibroMaxAggregateOutputType = {
   id_organizacion: number | null
   titulo: string | null
   autor: string | null
-  genero: string | null
   editorial: string | null
   isbn: string | null
   fecha_pub: Date | null
@@ -73,7 +71,7 @@ export type LibroCountAggregateOutputType = {
   id_organizacion: number
   titulo: number
   autor: number
-  genero: number
+  generos: number
   editorial: number
   isbn: number
   fecha_pub: number
@@ -101,7 +99,6 @@ export type LibroMinAggregateInputType = {
   id_organizacion?: true
   titulo?: true
   autor?: true
-  genero?: true
   editorial?: true
   isbn?: true
   fecha_pub?: true
@@ -116,7 +113,6 @@ export type LibroMaxAggregateInputType = {
   id_organizacion?: true
   titulo?: true
   autor?: true
-  genero?: true
   editorial?: true
   isbn?: true
   fecha_pub?: true
@@ -131,7 +127,7 @@ export type LibroCountAggregateInputType = {
   id_organizacion?: true
   titulo?: true
   autor?: true
-  genero?: true
+  generos?: true
   editorial?: true
   isbn?: true
   fecha_pub?: true
@@ -240,7 +236,7 @@ export type LibroGroupByOutputType = {
   id_organizacion: number
   titulo: string
   autor: string
-  genero: string
+  generos: runtime.JsonValue
   editorial: string | null
   isbn: string | null
   fecha_pub: Date | null
@@ -276,7 +272,7 @@ export type LibroWhereInput = {
   id_organizacion?: Prisma.IntFilter<'Libro'> | number
   titulo?: Prisma.StringFilter<'Libro'> | string
   autor?: Prisma.StringFilter<'Libro'> | string
-  genero?: Prisma.StringFilter<'Libro'> | string
+  generos?: Prisma.JsonFilter<'Libro'>
   editorial?: Prisma.StringNullableFilter<'Libro'> | string | null
   isbn?: Prisma.StringNullableFilter<'Libro'> | string | null
   fecha_pub?: Prisma.DateTimeNullableFilter<'Libro'> | Date | string | null
@@ -299,7 +295,7 @@ export type LibroOrderByWithRelationInput = {
   id_organizacion?: Prisma.SortOrder
   titulo?: Prisma.SortOrder
   autor?: Prisma.SortOrder
-  genero?: Prisma.SortOrder
+  generos?: Prisma.SortOrder
   editorial?: Prisma.SortOrderInput | Prisma.SortOrder
   isbn?: Prisma.SortOrderInput | Prisma.SortOrder
   fecha_pub?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -324,7 +320,7 @@ export type LibroWhereUniqueInput = Prisma.AtLeast<
     id_organizacion?: Prisma.IntFilter<'Libro'> | number
     titulo?: Prisma.StringFilter<'Libro'> | string
     autor?: Prisma.StringFilter<'Libro'> | string
-    genero?: Prisma.StringFilter<'Libro'> | string
+    generos?: Prisma.JsonFilter<'Libro'>
     editorial?: Prisma.StringNullableFilter<'Libro'> | string | null
     isbn?: Prisma.StringNullableFilter<'Libro'> | string | null
     fecha_pub?: Prisma.DateTimeNullableFilter<'Libro'> | Date | string | null
@@ -349,7 +345,7 @@ export type LibroOrderByWithAggregationInput = {
   id_organizacion?: Prisma.SortOrder
   titulo?: Prisma.SortOrder
   autor?: Prisma.SortOrder
-  genero?: Prisma.SortOrder
+  generos?: Prisma.SortOrder
   editorial?: Prisma.SortOrderInput | Prisma.SortOrder
   isbn?: Prisma.SortOrderInput | Prisma.SortOrder
   fecha_pub?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -376,7 +372,7 @@ export type LibroScalarWhereWithAggregatesInput = {
   id_organizacion?: Prisma.IntWithAggregatesFilter<'Libro'> | number
   titulo?: Prisma.StringWithAggregatesFilter<'Libro'> | string
   autor?: Prisma.StringWithAggregatesFilter<'Libro'> | string
-  genero?: Prisma.StringWithAggregatesFilter<'Libro'> | string
+  generos?: Prisma.JsonWithAggregatesFilter<'Libro'>
   editorial?: Prisma.StringNullableWithAggregatesFilter<'Libro'> | string | null
   isbn?: Prisma.StringNullableWithAggregatesFilter<'Libro'> | string | null
   fecha_pub?:
@@ -390,7 +386,7 @@ export type LibroScalarWhereWithAggregatesInput = {
 export type LibroCreateInput = {
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -410,7 +406,7 @@ export type LibroUncheckedCreateInput = {
   id_organizacion: number
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -427,7 +423,7 @@ export type LibroUncheckedCreateInput = {
 export type LibroUpdateInput = {
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -448,7 +444,7 @@ export type LibroUncheckedUpdateInput = {
   id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -468,7 +464,7 @@ export type LibroCreateManyInput = {
   id_organizacion: number
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -481,7 +477,7 @@ export type LibroCreateManyInput = {
 export type LibroUpdateManyMutationInput = {
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -497,7 +493,7 @@ export type LibroUncheckedUpdateManyInput = {
   id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -531,7 +527,7 @@ export type LibroCountOrderByAggregateInput = {
   id_organizacion?: Prisma.SortOrder
   titulo?: Prisma.SortOrder
   autor?: Prisma.SortOrder
-  genero?: Prisma.SortOrder
+  generos?: Prisma.SortOrder
   editorial?: Prisma.SortOrder
   isbn?: Prisma.SortOrder
   fecha_pub?: Prisma.SortOrder
@@ -552,7 +548,6 @@ export type LibroMaxOrderByAggregateInput = {
   id_organizacion?: Prisma.SortOrder
   titulo?: Prisma.SortOrder
   autor?: Prisma.SortOrder
-  genero?: Prisma.SortOrder
   editorial?: Prisma.SortOrder
   isbn?: Prisma.SortOrder
   fecha_pub?: Prisma.SortOrder
@@ -567,7 +562,6 @@ export type LibroMinOrderByAggregateInput = {
   id_organizacion?: Prisma.SortOrder
   titulo?: Prisma.SortOrder
   autor?: Prisma.SortOrder
-  genero?: Prisma.SortOrder
   editorial?: Prisma.SortOrder
   isbn?: Prisma.SortOrder
   fecha_pub?: Prisma.SortOrder
@@ -788,7 +782,7 @@ export type LibroUpdateOneRequiredWithoutReservasNestedInput = {
 export type LibroCreateWithoutOrganizacionInput = {
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -806,7 +800,7 @@ export type LibroUncheckedCreateWithoutOrganizacionInput = {
   id?: number
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -871,7 +865,7 @@ export type LibroScalarWhereInput = {
   id_organizacion?: Prisma.IntFilter<'Libro'> | number
   titulo?: Prisma.StringFilter<'Libro'> | string
   autor?: Prisma.StringFilter<'Libro'> | string
-  genero?: Prisma.StringFilter<'Libro'> | string
+  generos?: Prisma.JsonFilter<'Libro'>
   editorial?: Prisma.StringNullableFilter<'Libro'> | string | null
   isbn?: Prisma.StringNullableFilter<'Libro'> | string | null
   fecha_pub?: Prisma.DateTimeNullableFilter<'Libro'> | Date | string | null
@@ -884,7 +878,7 @@ export type LibroScalarWhereInput = {
 export type LibroCreateWithoutPrestamosInput = {
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -903,7 +897,7 @@ export type LibroUncheckedCreateWithoutPrestamosInput = {
   id_organizacion: number
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -947,7 +941,7 @@ export type LibroUpdateToOneWithWhereWithoutPrestamosInput = {
 export type LibroUpdateWithoutPrestamosInput = {
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -967,7 +961,7 @@ export type LibroUncheckedUpdateWithoutPrestamosInput = {
   id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -984,7 +978,7 @@ export type LibroUncheckedUpdateWithoutPrestamosInput = {
 export type LibroCreateWithoutReportes_problemasInput = {
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -1003,7 +997,7 @@ export type LibroUncheckedCreateWithoutReportes_problemasInput = {
   id_organizacion: number
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -1047,7 +1041,7 @@ export type LibroUpdateToOneWithWhereWithoutReportes_problemasInput = {
 export type LibroUpdateWithoutReportes_problemasInput = {
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1067,7 +1061,7 @@ export type LibroUncheckedUpdateWithoutReportes_problemasInput = {
   id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1084,7 +1078,7 @@ export type LibroUncheckedUpdateWithoutReportes_problemasInput = {
 export type LibroCreateWithoutResenasInput = {
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -1103,7 +1097,7 @@ export type LibroUncheckedCreateWithoutResenasInput = {
   id_organizacion: number
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -1147,7 +1141,7 @@ export type LibroUpdateToOneWithWhereWithoutResenasInput = {
 export type LibroUpdateWithoutResenasInput = {
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1167,7 +1161,7 @@ export type LibroUncheckedUpdateWithoutResenasInput = {
   id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1184,7 +1178,7 @@ export type LibroUncheckedUpdateWithoutResenasInput = {
 export type LibroCreateWithoutReservasInput = {
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -1203,7 +1197,7 @@ export type LibroUncheckedCreateWithoutReservasInput = {
   id_organizacion: number
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -1247,7 +1241,7 @@ export type LibroUpdateToOneWithWhereWithoutReservasInput = {
 export type LibroUpdateWithoutReservasInput = {
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1267,7 +1261,7 @@ export type LibroUncheckedUpdateWithoutReservasInput = {
   id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1285,7 +1279,7 @@ export type LibroCreateManyOrganizacionInput = {
   id?: number
   titulo: string
   autor: string
-  genero: string
+  generos: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: string | null
   isbn?: string | null
   fecha_pub?: Date | string | null
@@ -1298,7 +1292,7 @@ export type LibroCreateManyOrganizacionInput = {
 export type LibroUpdateWithoutOrganizacionInput = {
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1317,7 +1311,7 @@ export type LibroUncheckedUpdateWithoutOrganizacionInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1336,7 +1330,7 @@ export type LibroUncheckedUpdateManyWithoutOrganizacionInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   titulo?: Prisma.StringFieldUpdateOperationsInput | string
   autor?: Prisma.StringFieldUpdateOperationsInput | string
-  genero?: Prisma.StringFieldUpdateOperationsInput | string
+  generos?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?:
@@ -1430,7 +1424,7 @@ export type LibroSelect<
     id_organizacion?: boolean
     titulo?: boolean
     autor?: boolean
-    genero?: boolean
+    generos?: boolean
     editorial?: boolean
     isbn?: boolean
     fecha_pub?: boolean
@@ -1453,7 +1447,7 @@ export type LibroSelectScalar = {
   id_organizacion?: boolean
   titulo?: boolean
   autor?: boolean
-  genero?: boolean
+  generos?: boolean
   editorial?: boolean
   isbn?: boolean
   fecha_pub?: boolean
@@ -1471,7 +1465,7 @@ export type LibroOmit<
   | 'id_organizacion'
   | 'titulo'
   | 'autor'
-  | 'genero'
+  | 'generos'
   | 'editorial'
   | 'isbn'
   | 'fecha_pub'
@@ -1511,7 +1505,7 @@ export type $LibroPayload<
       id_organizacion: number
       titulo: string
       autor: string
-      genero: string
+      generos: runtime.JsonValue
       editorial: string | null
       isbn: string | null
       fecha_pub: Date | null
@@ -2097,7 +2091,7 @@ export interface LibroFieldRefs {
   readonly id_organizacion: Prisma.FieldRef<'Libro', 'Int'>
   readonly titulo: Prisma.FieldRef<'Libro', 'String'>
   readonly autor: Prisma.FieldRef<'Libro', 'String'>
-  readonly genero: Prisma.FieldRef<'Libro', 'String'>
+  readonly generos: Prisma.FieldRef<'Libro', 'Json'>
   readonly editorial: Prisma.FieldRef<'Libro', 'String'>
   readonly isbn: Prisma.FieldRef<'Libro', 'String'>
   readonly fecha_pub: Prisma.FieldRef<'Libro', 'DateTime'>

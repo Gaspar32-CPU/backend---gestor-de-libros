@@ -30,6 +30,7 @@ export type ResenasAvgAggregateOutputType = {
   id: number | null
   id_usuario: number | null
   id_libro: number | null
+  id_organizacion: number | null
   calificacion: number | null
 }
 
@@ -37,6 +38,7 @@ export type ResenasSumAggregateOutputType = {
   id: number | null
   id_usuario: number | null
   id_libro: number | null
+  id_organizacion: number | null
   calificacion: number | null
 }
 
@@ -44,6 +46,7 @@ export type ResenasMinAggregateOutputType = {
   id: number | null
   id_usuario: number | null
   id_libro: number | null
+  id_organizacion: number | null
   calificacion: number | null
   comentario: string | null
   fecha: Date | null
@@ -53,6 +56,7 @@ export type ResenasMaxAggregateOutputType = {
   id: number | null
   id_usuario: number | null
   id_libro: number | null
+  id_organizacion: number | null
   calificacion: number | null
   comentario: string | null
   fecha: Date | null
@@ -62,6 +66,7 @@ export type ResenasCountAggregateOutputType = {
   id: number
   id_usuario: number
   id_libro: number
+  id_organizacion: number
   calificacion: number
   comentario: number
   fecha: number
@@ -72,6 +77,7 @@ export type ResenasAvgAggregateInputType = {
   id?: true
   id_usuario?: true
   id_libro?: true
+  id_organizacion?: true
   calificacion?: true
 }
 
@@ -79,6 +85,7 @@ export type ResenasSumAggregateInputType = {
   id?: true
   id_usuario?: true
   id_libro?: true
+  id_organizacion?: true
   calificacion?: true
 }
 
@@ -86,6 +93,7 @@ export type ResenasMinAggregateInputType = {
   id?: true
   id_usuario?: true
   id_libro?: true
+  id_organizacion?: true
   calificacion?: true
   comentario?: true
   fecha?: true
@@ -95,6 +103,7 @@ export type ResenasMaxAggregateInputType = {
   id?: true
   id_usuario?: true
   id_libro?: true
+  id_organizacion?: true
   calificacion?: true
   comentario?: true
   fecha?: true
@@ -104,6 +113,7 @@ export type ResenasCountAggregateInputType = {
   id?: true
   id_usuario?: true
   id_libro?: true
+  id_organizacion?: true
   calificacion?: true
   comentario?: true
   fecha?: true
@@ -207,6 +217,7 @@ export type ResenasGroupByOutputType = {
   id: number
   id_usuario: number
   id_libro: number
+  id_organizacion: number
   calificacion: number
   comentario: string | null
   fecha: Date
@@ -237,6 +248,7 @@ export type resenasWhereInput = {
   id?: Prisma.IntFilter<'resenas'> | number
   id_usuario?: Prisma.IntFilter<'resenas'> | number
   id_libro?: Prisma.IntFilter<'resenas'> | number
+  id_organizacion?: Prisma.IntFilter<'resenas'> | number
   calificacion?: Prisma.IntFilter<'resenas'> | number
   comentario?: Prisma.StringNullableFilter<'resenas'> | string | null
   fecha?: Prisma.DateTimeFilter<'resenas'> | Date | string
@@ -251,6 +263,7 @@ export type resenasOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   id_usuario?: Prisma.SortOrder
   id_libro?: Prisma.SortOrder
+  id_organizacion?: Prisma.SortOrder
   calificacion?: Prisma.SortOrder
   comentario?: Prisma.SortOrderInput | Prisma.SortOrder
   fecha?: Prisma.SortOrder
@@ -262,12 +275,12 @@ export type resenasOrderByWithRelationInput = {
 export type resenasWhereUniqueInput = Prisma.AtLeast<
   {
     id?: number
-    id_usuario_id_libro?: Prisma.resenasId_usuarioId_libroCompoundUniqueInput
     AND?: Prisma.resenasWhereInput | Prisma.resenasWhereInput[]
     OR?: Prisma.resenasWhereInput[]
     NOT?: Prisma.resenasWhereInput | Prisma.resenasWhereInput[]
     id_usuario?: Prisma.IntFilter<'resenas'> | number
     id_libro?: Prisma.IntFilter<'resenas'> | number
+    id_organizacion?: Prisma.IntFilter<'resenas'> | number
     calificacion?: Prisma.IntFilter<'resenas'> | number
     comentario?: Prisma.StringNullableFilter<'resenas'> | string | null
     fecha?: Prisma.DateTimeFilter<'resenas'> | Date | string
@@ -280,13 +293,14 @@ export type resenasWhereUniqueInput = Prisma.AtLeast<
       Prisma.UsuarioWhereInput
     >
   },
-  'id' | 'id_usuario_id_libro'
+  'id'
 >
 
 export type resenasOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   id_usuario?: Prisma.SortOrder
   id_libro?: Prisma.SortOrder
+  id_organizacion?: Prisma.SortOrder
   calificacion?: Prisma.SortOrder
   comentario?: Prisma.SortOrderInput | Prisma.SortOrder
   fecha?: Prisma.SortOrder
@@ -308,6 +322,7 @@ export type resenasScalarWhereWithAggregatesInput = {
   id?: Prisma.IntWithAggregatesFilter<'resenas'> | number
   id_usuario?: Prisma.IntWithAggregatesFilter<'resenas'> | number
   id_libro?: Prisma.IntWithAggregatesFilter<'resenas'> | number
+  id_organizacion?: Prisma.IntWithAggregatesFilter<'resenas'> | number
   calificacion?: Prisma.IntWithAggregatesFilter<'resenas'> | number
   comentario?:
     Prisma.StringNullableWithAggregatesFilter<'resenas'> | string | null
@@ -326,6 +341,7 @@ export type resenasUncheckedCreateInput = {
   id?: number
   id_usuario: number
   id_libro: number
+  id_organizacion: number
   calificacion: number
   comentario?: string | null
   fecha?: Date | string
@@ -343,6 +359,7 @@ export type resenasUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   id_usuario?: Prisma.IntFieldUpdateOperationsInput | number
   id_libro?: Prisma.IntFieldUpdateOperationsInput | number
+  id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   calificacion?: Prisma.IntFieldUpdateOperationsInput | number
   comentario?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -352,6 +369,7 @@ export type resenasCreateManyInput = {
   id?: number
   id_usuario: number
   id_libro: number
+  id_organizacion: number
   calificacion: number
   comentario?: string | null
   fecha?: Date | string
@@ -367,6 +385,7 @@ export type resenasUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   id_usuario?: Prisma.IntFieldUpdateOperationsInput | number
   id_libro?: Prisma.IntFieldUpdateOperationsInput | number
+  id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   calificacion?: Prisma.IntFieldUpdateOperationsInput | number
   comentario?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -390,15 +409,11 @@ export type resenasOrderByRelevanceInput = {
   search: string
 }
 
-export type resenasId_usuarioId_libroCompoundUniqueInput = {
-  id_usuario: number
-  id_libro: number
-}
-
 export type resenasCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   id_usuario?: Prisma.SortOrder
   id_libro?: Prisma.SortOrder
+  id_organizacion?: Prisma.SortOrder
   calificacion?: Prisma.SortOrder
   comentario?: Prisma.SortOrder
   fecha?: Prisma.SortOrder
@@ -408,6 +423,7 @@ export type resenasAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   id_usuario?: Prisma.SortOrder
   id_libro?: Prisma.SortOrder
+  id_organizacion?: Prisma.SortOrder
   calificacion?: Prisma.SortOrder
 }
 
@@ -415,6 +431,7 @@ export type resenasMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   id_usuario?: Prisma.SortOrder
   id_libro?: Prisma.SortOrder
+  id_organizacion?: Prisma.SortOrder
   calificacion?: Prisma.SortOrder
   comentario?: Prisma.SortOrder
   fecha?: Prisma.SortOrder
@@ -424,6 +441,7 @@ export type resenasMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   id_usuario?: Prisma.SortOrder
   id_libro?: Prisma.SortOrder
+  id_organizacion?: Prisma.SortOrder
   calificacion?: Prisma.SortOrder
   comentario?: Prisma.SortOrder
   fecha?: Prisma.SortOrder
@@ -433,6 +451,7 @@ export type resenasSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   id_usuario?: Prisma.SortOrder
   id_libro?: Prisma.SortOrder
+  id_organizacion?: Prisma.SortOrder
   calificacion?: Prisma.SortOrder
 }
 
@@ -673,6 +692,7 @@ export type resenasScalarWhereInput = {
   id?: Prisma.IntFilter<'resenas'> | number
   id_usuario?: Prisma.IntFilter<'resenas'> | number
   id_libro?: Prisma.IntFilter<'resenas'> | number
+  id_organizacion?: Prisma.IntFilter<'resenas'> | number
   calificacion?: Prisma.IntFilter<'resenas'> | number
   comentario?: Prisma.StringNullableFilter<'resenas'> | string | null
   fecha?: Prisma.DateTimeFilter<'resenas'> | Date | string
@@ -688,6 +708,7 @@ export type resenasCreateWithoutLibrosInput = {
 export type resenasUncheckedCreateWithoutLibrosInput = {
   id?: number
   id_usuario: number
+  id_organizacion: number
   calificacion: number
   comentario?: string | null
   fecha?: Date | string
@@ -769,6 +790,7 @@ export type resenasUncheckedUpdateManyWithoutUsuariosInput = {
 export type resenasCreateManyLibrosInput = {
   id?: number
   id_usuario: number
+  id_organizacion: number
   calificacion: number
   comentario?: string | null
   fecha?: Date | string
@@ -784,6 +806,7 @@ export type resenasUpdateWithoutLibrosInput = {
 export type resenasUncheckedUpdateWithoutLibrosInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   id_usuario?: Prisma.IntFieldUpdateOperationsInput | number
+  id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   calificacion?: Prisma.IntFieldUpdateOperationsInput | number
   comentario?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -792,6 +815,7 @@ export type resenasUncheckedUpdateWithoutLibrosInput = {
 export type resenasUncheckedUpdateManyWithoutLibrosInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   id_usuario?: Prisma.IntFieldUpdateOperationsInput | number
+  id_organizacion?: Prisma.IntFieldUpdateOperationsInput | number
   calificacion?: Prisma.IntFieldUpdateOperationsInput | number
   comentario?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -805,6 +829,7 @@ export type resenasSelect<
     id?: boolean
     id_usuario?: boolean
     id_libro?: boolean
+    id_organizacion?: boolean
     calificacion?: boolean
     comentario?: boolean
     fecha?: boolean
@@ -818,6 +843,7 @@ export type resenasSelectScalar = {
   id?: boolean
   id_usuario?: boolean
   id_libro?: boolean
+  id_organizacion?: boolean
   calificacion?: boolean
   comentario?: boolean
   fecha?: boolean
@@ -827,7 +853,13 @@ export type resenasOmit<
   ExtArgs extends runtime.Types.Extensions.InternalArgs =
     runtime.Types.Extensions.DefaultArgs,
 > = runtime.Types.Extensions.GetOmit<
-  'id' | 'id_usuario' | 'id_libro' | 'calificacion' | 'comentario' | 'fecha',
+  | 'id'
+  | 'id_usuario'
+  | 'id_libro'
+  | 'id_organizacion'
+  | 'calificacion'
+  | 'comentario'
+  | 'fecha',
   ExtArgs['result']['resenas']
 >
 export type resenasInclude<
@@ -852,6 +884,7 @@ export type $resenasPayload<
       id: number
       id_usuario: number
       id_libro: number
+      id_organizacion: number
       calificacion: number
       comentario: string | null
       fecha: Date
@@ -1400,6 +1433,7 @@ export interface resenasFieldRefs {
   readonly id: Prisma.FieldRef<'resenas', 'Int'>
   readonly id_usuario: Prisma.FieldRef<'resenas', 'Int'>
   readonly id_libro: Prisma.FieldRef<'resenas', 'Int'>
+  readonly id_organizacion: Prisma.FieldRef<'resenas', 'Int'>
   readonly calificacion: Prisma.FieldRef<'resenas', 'Int'>
   readonly comentario: Prisma.FieldRef<'resenas', 'String'>
   readonly fecha: Prisma.FieldRef<'resenas', 'DateTime'>
