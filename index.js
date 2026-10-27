@@ -1417,7 +1417,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
     const { busqueda, generos } = req.query
     let sql = `
       SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
-             l.resumen, l.portada, l.stock,
+             l.resumen, l.portada, l.fecha_creacion, l.stock,
              l.stock - COALESCE(p.activos, 0) AS disponibles,
              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
              COALESCE(r.total, 0) AS total_resenas
