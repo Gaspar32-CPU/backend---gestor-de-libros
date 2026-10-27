@@ -9,6 +9,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "postinstall": "prisma generate",
+    "db:seed": "node prisma/seed.js",
     "test:unit": "node --test tests/unit/*.test.js",
     "test:integration": "node --test --test-concurrency=1 tests/integration/*.test.js"
   },
