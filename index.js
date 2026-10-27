@@ -1419,12 +1419,13 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
       SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
              l.resumen, l.portada, l.stock,
              l.stock - COALESCE(p.activos, 0) AS disponibles,
-             ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
+             ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
+             COALESCE(r.total, 0) AS total_resenas
       FROM libros l
       LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
                  WHERE estado IN ('pendiente_retiro','activo','atrasado')
                  GROUP BY id_libro) p ON p.id_libro = l.id
-      LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
+      LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio, COUNT(*) AS total FROM resenas
                  GROUP BY id_libro) r ON r.id_libro = l.id
       WHERE l.id_organizacion = ? AND l.eliminado = FALSE`
     const params = [req.usuario.organizacionId]

@@ -70,11 +70,13 @@ model Libro {
   autor              String               @db.VarChar(150)
   generos            Json                 @db.Json
   editorial          String?              @db.VarChar(150)
+  idioma             String?              @db.VarChar(50)
   isbn               String?              @db.VarChar(20)
   fecha_pub          DateTime?            @db.Date
   resumen            String?              @db.Text
   portada            String?              @db.VarChar(255)
   stock              Int                  @default(1) @db.UnsignedInt
+  eliminado          Boolean              @default(false)
   fecha_creacion     DateTime             @default(now()) @db.DateTime(0)
   organizacion       Organizacion         @relation(fields: [id_organizacion], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_libros_org")
   prestamos          Prestamo[]
