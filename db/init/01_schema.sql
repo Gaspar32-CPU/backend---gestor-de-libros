@@ -81,6 +81,7 @@ CREATE TABLE usuarios (
     -- Ruta relativa servida desde /uploads (ver multer en index.js). NULL =
     -- sin foto, se muestran las iniciales.
     foto             VARCHAR(255) NULL,
+    notificaciones_activadas  TINYINT(1) NOT NULL DEFAULT 1,
     -- NULL = usuario invitado por un admin que todavía no creó su contraseña
     -- (ver POST /api/usuarios y POST /api/auth/crear-contrasena en index.js).
     contrasena       VARCHAR(255) NULL,
@@ -106,17 +107,17 @@ CREATE TABLE libros (
     id_organizacion  INT UNSIGNED NOT NULL,
     titulo           VARCHAR(255) NOT NULL,
     autor            VARCHAR(150) NOT NULL,
-    genero           VARCHAR(100) NOT NULL,
+    generos          JSON NOT NULL,
     editorial        VARCHAR(150),
     isbn             VARCHAR(20),
     fecha_pub        DATE,
     resumen          TEXT,
     portada          VARCHAR(255),
     stock            INT UNSIGNED NOT NULL DEFAULT 1,
+    eliminado        BOOLEAN NOT NULL DEFAULT FALSE,
     fecha_creacion   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_libros_org_titulo (id_organizacion, titulo),
-    KEY idx_libros_org_genero (id_organizacion, genero),
     CONSTRAINT fk_libros_org FOREIGN KEY (id_organizacion)
         REFERENCES organizaciones(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

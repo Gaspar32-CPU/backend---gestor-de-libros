@@ -1015,7 +1015,7 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
   // El frontend (perfilService.js) ya valida la confirmación de contraseña
   // en el cliente antes de llamar a este endpoint, así que acá solo llega
   // "contrasena" (sin repetir).
-  const { nombre, apellido, telefono, contrasena } = req.body ?? {}
+  const { nombre, apellido, telefono, contrasena, notificacionesActivadas } = req.body ?? {}
 
   if (
     typeof nombre !== 'string' || !nombre.trim() ||
@@ -1025,6 +1025,18 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
     return res.status(400).json({
       error: 'faltan_campos',
       mensaje: 'Faltan campos obligatorios: nombre, apellido, telefono',
+    })
+  }
+
+  // Opcional: llega como 'TRUE'/'FALSE' (mismo formato que devuelve el GET).
+  // Si no viene, se conserva el valor actual del usuario.
+  const notificaciones = String(
+    notificacionesActivadas ?? usuario.notificacionesActivadas,
+  ).toUpperCase()
+  if (!['TRUE', 'FALSE'].includes(notificaciones)) {
+    return res.status(400).json({
+      error: 'notificaciones_invalidas',
+      mensaje: 'notificacionesActivadas debe ser TRUE o FALSE',
     })
   }
 
@@ -1039,6 +1051,7 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
       apellido: apellido.trim(),
       telefono: telefono.trim(),
       contrasena: contrasenaHasheada,
+      notificacionesActivadas: notificaciones === 'TRUE' ? 1 : 0,
     })
 
     const usuarioActualizado = await buscarUsuarioPorId(usuario.id)
@@ -1145,6 +1158,14 @@ app.post('/api/auth/login', async (req, res) => {
       message: 'Credenciales incorrectas',
     })
   }
+
+  if (usuarioElegido.activo === "INACTIVO") {
+    return res.status(401).json({
+      code: 'USUARIO_INACTIVO',
+      message: 'El usuario no está activo',
+    })
+  }
+  
 
   // Cuenta (registrada o invitada por un admin) que todavía no pasó por
   // /auth/crear-contrasena: no hay hash contra el cual comparar.
@@ -1326,6 +1347,16 @@ app.post('/api/auth/crear-contrasena', async (req, res, next) => {
    LIBROS
    ============================================================ */
 
+// Acepta uno o varios géneros (array o string suelto) y devuelve solo los
+// no vacíos, ya sin espacios sobrantes.
+function normalizarGeneros(valor) {
+  const lista = Array.isArray(valor) ? valor : [valor]
+  return lista
+    .filter((g) => typeof g === 'string')
+    .map((g) => g.trim())
+    .filter(Boolean)
+}
+
 // POST /api/libros - Crear un nuevo libro (admin)
 app.post(
   '/api/libros',
@@ -1335,7 +1366,7 @@ app.post(
     const {
       titulo,
       autor,
-      genero,
+      generos,
       editorial,
       idioma,
       isbn,
@@ -1345,23 +1376,24 @@ app.post(
       stock,
     } = req.body ?? {}
 
-    if (!titulo || !autor || !genero) {
+    const listaGeneros = normalizarGeneros(generos)
+    if (!titulo || !autor || listaGeneros.length === 0) {
       return res.status(400).json({
         error: 'faltan_campos',
-        mensaje: 'Faltan campos obligatorios: titulo, autor, genero',
+        mensaje: 'Faltan campos obligatorios: titulo, autor, generos',
       })
     }
 
     try {
       const [resultado] = await pool.query(
         `INSERT INTO libros
-         (id_organizacion, titulo, autor, genero, editorial, idioma, isbn, fecha_pub, resumen, portada, stock)
+         (id_organizacion, titulo, autor, generos, editorial, idioma, isbn, fecha_pub, resumen, portada, stock)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.usuario.organizacionId,
           titulo,
           autor,
-          genero,
+          JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
           isbn ?? null,
@@ -1393,28 +1425,30 @@ app.post(
 // GET /api/libros - Listar todos los libros (cualquier usuario autenticado)
 app.get('/api/libros', verificarToken, async (req, res, next) => {
   try {
-    const { busqueda, genero } = req.query
+    const { busqueda, generos } = req.query
     let sql = `
-      SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.idioma, l.isbn, l.fecha_pub,
-             l.resumen, l.portada, l.stock,
+      SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
+             l.resumen, l.portada, l.fecha_creacion, l.stock,
              l.stock - COALESCE(p.activos, 0) AS disponibles,
-             ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas
+             ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
+             COALESCE(r.total, 0) AS total_resenas
       FROM libros l
       LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
                  WHERE estado IN ('pendiente_retiro','activo','atrasado')
                  GROUP BY id_libro) p ON p.id_libro = l.id
-      LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
+      LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio, COUNT(*) AS total FROM resenas
                  GROUP BY id_libro) r ON r.id_libro = l.id
-      WHERE l.id_organizacion = ?`
+      WHERE l.id_organizacion = ? AND l.eliminado = FALSE`
     const params = [req.usuario.organizacionId]
 
     if (busqueda) {
       sql += ' AND (l.titulo LIKE ? OR l.autor LIKE ?)'
       params.push(`%${busqueda}%`, `%${busqueda}%`)
     }
-    if (genero) {
-      sql += ' AND l.genero = ?'
-      params.push(genero)
+    const filtroGeneros = normalizarGeneros(generos)
+    if (filtroGeneros.length > 0) {
+      sql += ' AND JSON_OVERLAPS(l.generos, CAST(? AS JSON))'
+      params.push(JSON.stringify(filtroGeneros))
     }
 
     const [libros] = await pool.query(sql, params)
@@ -1428,7 +1462,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
 app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
   try {
     const [[libro]] = await pool.query(
-      `SELECT l.id, l.titulo, l.autor, l.genero, l.editorial, l.idioma, l.isbn, l.fecha_pub,
+      `SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
               l.resumen, l.portada, l.stock,
               l.stock - COALESCE(p.activos, 0) AS disponibles,
               ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
@@ -1441,7 +1475,7 @@ app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
                   GROUP BY id_libro) p ON p.id_libro = l.id
        LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio FROM resenas
                   GROUP BY id_libro) r ON r.id_libro = l.id
-       WHERE l.id = ? AND l.id_organizacion = ?`,
+       WHERE l.id = ? AND l.id_organizacion = ? AND l.eliminado = FALSE`,
       [req.usuario.id, req.params.id, req.usuario.organizacionId],
     )
 
@@ -1507,10 +1541,10 @@ app.post('/api/libros/:id/resenas', verificarToken, async (req, res, next) => {
     })
   }
 
-  if (comentario.trim().length < 50) {
+  if (comentario.trim().length < 10) {
     return res.status(400).json({
       error: 'conflicto',
-      mensaje: 'El comentario debe tener al menos 50 caracteres.',
+      mensaje: 'El comentario debe tener al menos 10 caracteres.',
     })
   }
 
@@ -1558,7 +1592,7 @@ app.put(
     const {
       titulo,
       autor,
-      genero,
+      generos,
       editorial,
       idioma,
       isbn,
@@ -1568,23 +1602,24 @@ app.put(
       stock,
     } = req.body ?? {}
 
-    if (!titulo || !autor || !genero) {
+    const listaGeneros = normalizarGeneros(generos)
+    if (!titulo || !autor || listaGeneros.length === 0) {
       return res.status(400).json({
         error: 'faltan_campos',
-        mensaje: 'Faltan campos obligatorios: titulo, autor, genero',
+        mensaje: 'Faltan campos obligatorios: titulo, autor, generos',
       })
     }
 
     try {
       const [resultado] = await pool.query(
         `UPDATE libros
-       SET titulo = ?, autor = ?, genero = ?, editorial = ?, idioma = ?, isbn = ?, fecha_pub = ?,
+       SET titulo = ?, autor = ?, generos = ?, editorial = ?, idioma = ?, isbn = ?, fecha_pub = ?,
            resumen = ?, portada = ?, stock = ?
-       WHERE id = ? AND id_organizacion = ?`,
+       WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE`,
         [
           titulo,
           autor,
-          genero,
+          JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
           isbn ?? null,
@@ -1622,12 +1657,38 @@ app.delete(
   verificarAdmin,
   async (req, res, next) => {
     try {
+      // Borrado lógico: la fila queda para no perder el historial de
+      // préstamos. Solo se permite si ningún préstamo sigue en curso
+      // (todos devueltos o cancelados, o ninguno).
       const [resultado] = await pool.query(
-        'DELETE FROM libros WHERE id = ? AND id_organizacion = ?',
+        `UPDATE libros
+        SET eliminado = TRUE
+        WHERE id = ?
+          AND id_organizacion = ?
+          AND eliminado = FALSE
+          AND NOT EXISTS (
+            SELECT 1
+            FROM prestamos p
+            WHERE p.id_libro = libros.id
+              AND p.estado NOT IN ('devuelto', 'cancelado')
+          )`,
         [req.params.id, req.usuario.organizacionId],
       )
 
       if (resultado.affectedRows === 0) {
+        const [[libro]] = await pool.query(
+          'SELECT 1 FROM libros WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE',
+          [req.params.id, req.usuario.organizacionId],
+        )
+
+        if (libro) {
+          return res.status(409).json({
+            error: 'libro_con_prestamos',
+            mensaje:
+              'No se puede eliminar: el libro tiene préstamos pendientes de retiro, activos o atrasados.',
+          })
+        }
+
         return res
           .status(404)
           .json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' })
@@ -1635,14 +1696,6 @@ app.delete(
 
       res.status(200).json({ mensaje: 'Libro eliminado' })
     } catch (err) {
-      // El libro tiene préstamos asociados (ON DELETE RESTRICT): no se puede
-      // borrar sin perder el historial, hay que avisarle al admin por qué.
-      if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
-        return res.status(409).json({
-          error: 'libro_con_prestamos',
-          mensaje: 'No se puede eliminar: el libro tiene préstamos asociados.',
-        })
-      }
       next(err)
     }
   },
@@ -1949,6 +2002,16 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
     // El usuario sale del token, no del body: si no, cualquiera podría
     // pedir préstamos a nombre de otro.
     const usuarioId = req.usuario.id
+
+    const [[libro]] = await pool.query(
+      'SELECT 1 FROM libros WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE',
+      [libroId, req.usuario.organizacionId],
+    )
+    if (!libro) {
+      return res
+        .status(404)
+        .json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' })
+    }
 
     const [[existente]] = await pool.query(
       `SELECT 1 FROM prestamos
