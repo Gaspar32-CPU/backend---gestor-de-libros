@@ -1020,12 +1020,23 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
   if (
     typeof nombre !== 'string' || !nombre.trim() ||
     typeof apellido !== 'string' || !apellido.trim() ||
-    typeof telefono !== 'string' || !telefono.trim() ||
-    typeof notificacionesActivadas !== 'string' || !notificacionesActivadas.trim()
+    typeof telefono !== 'string' || !telefono.trim()
   ) {
     return res.status(400).json({
       error: 'faltan_campos',
-      mensaje: 'Faltan campos obligatorios: nombre, apellido, telefono, notificaciones',
+      mensaje: 'Faltan campos obligatorios: nombre, apellido, telefono',
+    })
+  }
+
+  // Opcional: llega como 'TRUE'/'FALSE' (mismo formato que devuelve el GET).
+  // Si no viene, se conserva el valor actual del usuario.
+  const notificaciones = String(
+    notificacionesActivadas ?? usuario.notificacionesActivadas,
+  ).toUpperCase()
+  if (!['TRUE', 'FALSE'].includes(notificaciones)) {
+    return res.status(400).json({
+      error: 'notificaciones_invalidas',
+      mensaje: 'notificacionesActivadas debe ser TRUE o FALSE',
     })
   }
 
@@ -1040,7 +1051,7 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
       apellido: apellido.trim(),
       telefono: telefono.trim(),
       contrasena: contrasenaHasheada,
-      notificacionesActivadas: notificacionesActivadas.trim(),
+      notificacionesActivadas: notificaciones === 'TRUE' ? 1 : 0,
     })
 
     const usuarioActualizado = await buscarUsuarioPorId(usuario.id)
