@@ -1391,6 +1391,7 @@ app.post(
       generos,
       editorial,
       idioma,
+      codigo_interno,
       isbn,
       fecha_pub,
       resumen,
@@ -1409,6 +1410,27 @@ app.post(
       return res.status(400).json({
         error: 'fecha_invalida',
         mensaje: 'El año de publicación no puede ser posterior al año actual',
+      })
+    }
+
+    if (codigo_interno != null && (typeof codigo_interno !== 'string' || codigo_interno.length > 50)) {
+      return res.status(400).json({
+        error: 'codigo_interno_invalido',
+        mensaje: 'El código interno debe ser un texto de hasta 50 caracteres',
+      })
+    }
+
+    const [existe] = await pool.query(
+      `select * from libros where codigo_interno = ? AND id_organizacion = ? AND eliminado = FALSE`,
+      [
+        codigo_interno?.trim() || null,
+        req.usuario.organizacionId,
+      ],
+    )
+    if (existe.length > 0 && existe[0].id != req.params.id) {
+      return res.status(400).json({
+        error: 'codigo_interno_duplicado',
+        mensaje: `El código interno ya está en uso por otro libro: ${existe[0].titulo}`,
       })
     }
 
@@ -1432,8 +1454,8 @@ app.post(
     try {
       const [resultado] = await pool.query(
         `INSERT INTO libros
-         (id_organizacion, titulo, autor, generos, editorial, idioma, isbn, fecha_pub, resumen, portada, stock)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_organizacion, titulo, autor, generos, editorial, idioma, codigo_interno, isbn, fecha_pub, resumen, portada, stock)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.usuario.organizacionId,
           titulo,
@@ -1441,6 +1463,7 @@ app.post(
           JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
+          codigo_interno?.trim() || null,
           isbn ? limpiarIsbn(isbn) : null,
           fecha_pub ?? null,
           resumen ?? null,
@@ -1469,7 +1492,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
   try {
     const { busqueda, generos } = req.query
     let sql = `
-      SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
+      SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.codigo_interno, l.fecha_pub,
              l.resumen, l.portada, l.fecha_creacion, l.stock,
              GREATEST(CAST(l.stock AS SIGNED) - COALESCE(p.activos, 0), 0) AS disponibles,
              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
@@ -1504,7 +1527,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
 app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
   try {
     const [[libro]] = await pool.query(
-      `SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
+      `SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.codigo_interno, l.fecha_pub,
               l.resumen, l.portada, l.stock,
               GREATEST(CAST(l.stock AS SIGNED) - COALESCE(p.activos, 0), 0) AS disponibles,
               ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
@@ -1637,6 +1660,7 @@ app.put(
       generos,
       editorial,
       idioma,
+      codigo_interno,
       isbn,
       fecha_pub,
       resumen,
@@ -1659,10 +1683,31 @@ app.put(
       })
     }
 
+    if (codigo_interno != null && (typeof codigo_interno !== 'string' || codigo_interno.length > 50)) {
+      return res.status(400).json({
+        error: 'codigo_interno_invalido',
+        mensaje: 'El código interno debe ser un texto de hasta 50 caracteres',
+      })
+    }
+
+    const [existe] = await pool.query(
+      `select * from libros where codigo_interno = ? AND id_organizacion = ? AND eliminado = FALSE`,
+      [
+        codigo_interno?.trim() || null,
+        req.usuario.organizacionId,
+      ],
+    )
+    if (existe.length > 0 && existe[0].id != req.params.id) {
+      return res.status(400).json({
+        error: 'codigo_interno_duplicado',
+        mensaje: `El código interno ya está en uso por otro libro: ${existe[0].titulo}`,
+      })
+    }
+
     try {
       const [resultado] = await pool.query(
         `UPDATE libros
-       SET titulo = ?, autor = ?, generos = ?, editorial = ?, idioma = ?, isbn = ?, fecha_pub = ?,
+       SET titulo = ?, autor = ?, generos = ?, editorial = ?, idioma = ?, isbn = ?, codigo_interno = ?, fecha_pub = ?,
            resumen = ?, portada = ?, stock = ?
        WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE`,
         [
@@ -1672,6 +1717,7 @@ app.put(
           editorial ?? null,
           idioma ?? null,
           isbn ? limpiarIsbn(isbn) : null,
+          codigo_interno?.trim() || null,
           fecha_pub ?? null,
           resumen ?? null,
           portada ?? null,
