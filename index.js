@@ -1357,6 +1357,27 @@ function normalizarGeneros(valor) {
     .filter(Boolean)
 }
 
+// Devuelve un libro con los mismos campos calculados que el listado
+// (disponibles, promedio_estrellas, total_resenas), para que el front no
+// reciba undefined al crear o editar.
+async function obtenerLibroConDisponibles(id) {
+  const [[libro]] = await pool.query(
+    `SELECT l.*,
+            l.stock - COALESCE(p.activos, 0) AS disponibles,
+            ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
+            COALESCE(r.total, 0) AS total_resenas
+     FROM libros l
+     LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
+                WHERE estado IN ('pendiente_retiro','activo','atrasado')
+                GROUP BY id_libro) p ON p.id_libro = l.id
+     LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio, COUNT(*) AS total FROM resenas
+                GROUP BY id_libro) r ON r.id_libro = l.id
+     WHERE l.id = ?`,
+    [id],
+  )
+  return libro
+}
+
 // POST /api/libros - Crear un nuevo libro (admin)
 app.post(
   '/api/libros',
@@ -1404,10 +1425,7 @@ app.post(
         ],
       )
 
-      const [rows] = await pool.query('SELECT * FROM libros WHERE id = ?', [
-        resultado.insertId,
-      ])
-      const libroCreado = rows[0]
+      const libroCreado = await obtenerLibroConDisponibles(resultado.insertId)
 
       if (!libroCreado) {
         return res
@@ -1638,10 +1656,7 @@ app.put(
           .json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' })
       }
 
-      const [[libroActualizado]] = await pool.query(
-        'SELECT * FROM libros WHERE id = ?',
-        [req.params.id],
-      )
+      const libroActualizado = await obtenerLibroConDisponibles(req.params.id)
 
       res.json(libroActualizado)
     } catch (err) {
