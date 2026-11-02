@@ -1364,7 +1364,7 @@ function normalizarGeneros(valor) {
 async function obtenerLibroConDisponibles(id) {
   const [[libro]] = await pool.query(
     `SELECT l.*,
-            l.stock - COALESCE(p.activos, 0) AS disponibles,
+            GREATEST(CAST(l.stock AS SIGNED) - COALESCE(p.activos, 0), 0) AS disponibles,
             ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
             COALESCE(r.total, 0) AS total_resenas
      FROM libros l
@@ -1471,7 +1471,7 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
     let sql = `
       SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
              l.resumen, l.portada, l.fecha_creacion, l.stock,
-             l.stock - COALESCE(p.activos, 0) AS disponibles,
+             GREATEST(CAST(l.stock AS SIGNED) - COALESCE(p.activos, 0), 0) AS disponibles,
              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
              COALESCE(r.total, 0) AS total_resenas
       FROM libros l
@@ -1506,7 +1506,7 @@ app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
     const [[libro]] = await pool.query(
       `SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
               l.resumen, l.portada, l.stock,
-              l.stock - COALESCE(p.activos, 0) AS disponibles,
+              GREATEST(CAST(l.stock AS SIGNED) - COALESCE(p.activos, 0), 0) AS disponibles,
               ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
               EXISTS (SELECT 1 FROM prestamos mp
                       WHERE mp.id_libro = l.id AND mp.id_usuario = ?
@@ -1649,6 +1649,13 @@ app.put(
       return res.status(400).json({
         error: 'faltan_campos',
         mensaje: 'Faltan campos obligatorios: titulo, autor, generos',
+      })
+    }
+    const stockNum = Number(stock)
+    if (!Number.isInteger(stockNum) || stockNum < 0) {
+      return res.status(400).json({
+        error: 'stock_invalido',
+        mensaje: 'El stock debe ser un entero mayor o igual a 0',
       })
     }
 
