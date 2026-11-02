@@ -1398,13 +1398,18 @@ app.post(
     } = req.body ?? {}
 
     const listaGeneros = normalizarGeneros(generos)
-    if (!titulo || !autor || listaGeneros.length === 0) {
+    if (!titulo || !autor || listaGeneros.length === 0 || !editorial || !stock || !idioma || !fecha_pub) {
       return res.status(400).json({
         error: 'faltan_campos',
-        mensaje: 'Faltan campos obligatorios: titulo, autor, generos',
+        mensaje: 'Faltan campos obligatorios: titulo, autor, generos, editorial, stock, idioma, fecha_pub',
       })
     }
-
+    if (fecha_pub && Number(String(fecha_pub).slice(0, 4)) > new Date().getFullYear()) {
+      return res.status(400).json({
+        error: 'fecha_invalida',
+        mensaje: 'El año de publicación no puede ser posterior al año actual',
+      })
+    }
     try {
       const [resultado] = await pool.query(
         `INSERT INTO libros
