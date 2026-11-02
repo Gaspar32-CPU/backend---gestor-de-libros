@@ -42,6 +42,7 @@ import {
 } from './repos.js'
 
 import isbnRoutes from './routes/isbn.routes.js'
+import { limpiarIsbn } from './services/isbn/validacion.js'
 import {
   notificarNuevoPrestamo,
   notificarInvitacion,
@@ -1410,6 +1411,24 @@ app.post(
         mensaje: 'El año de publicación no puede ser posterior al año actual',
       })
     }
+
+    const isbnLimpio = isbn ? limpiarIsbn(isbn) : null
+
+    if (isbnLimpio) {
+      const [isbnExistente] = await pool.query(
+        `SELECT id FROM libros
+        WHERE REPLACE(REPLACE(isbn, '-', ''), ' ', '') = ?
+          AND id_organizacion = ? AND eliminado = FALSE`,
+        [isbnLimpio, req.usuario.organizacionId],
+      )
+      if (isbnExistente.length > 0) {
+        return res.status(400).json({
+          error: 'libro_existente',
+          mensaje: 'El libro con ese ISBN ya existe',
+        })
+      }
+    }
+
     try {
       const [resultado] = await pool.query(
         `INSERT INTO libros
@@ -1422,7 +1441,7 @@ app.post(
           JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
-          isbn ?? null,
+          isbn ? limpiarIsbn(isbn) : null,
           fecha_pub ?? null,
           resumen ?? null,
           portada ?? null,
@@ -1645,7 +1664,7 @@ app.put(
           JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
-          isbn ?? null,
+          isbn ? limpiarIsbn(isbn) : null,
           fecha_pub ?? null,
           resumen ?? null,
           portada ?? null,
