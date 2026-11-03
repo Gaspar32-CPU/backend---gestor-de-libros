@@ -1405,10 +1405,10 @@ app.post(
     } = req.body ?? {}
 
     const listaGeneros = normalizarGeneros(generos)
-    if (!titulo || !autor || listaGeneros.length === 0 || !editorial || !stock || !idioma || !fecha_pub) {
+    if (!titulo || !autor || listaGeneros.length === 0 || !editorial || !stock) {
       return res.status(400).json({
         error: 'faltan_campos',
-        mensaje: 'Faltan campos obligatorios: titulo, autor, generos, editorial, stock, idioma, fecha_pub',
+        mensaje: 'Faltan campos obligatorios: titulo, autor, generos, editorial, stock',
       })
     }
     if (fecha_pub && Number(String(fecha_pub).slice(0, 4)) > new Date().getFullYear()) {

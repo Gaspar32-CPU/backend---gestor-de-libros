@@ -8,8 +8,9 @@ import { buscarLibroPorIsbn, isbnEsValido, limpiarIsbn } from './isbn/index.js';
 const RUTA_POR_DEFECTO = path.join(os.homedir(), 'Downloads', 'MiBiblioteca_completo.xlsx');
 const DOMINIO_POR_DEFECTO = '@anima.edu.uy';
 
-// Mismos obligatorios que POST /api/libros (index.js). codigo_interno es opcional.
-const CAMPOS_OBLIGATORIOS = ['titulo', 'autor', 'generos', 'editorial', 'stock', 'idioma', 'fecha_pub'];
+// Mismos obligatorios que POST /api/libros (index.js). codigo_interno, idioma y
+// fecha_pub son opcionales.
+const CAMPOS_OBLIGATORIOS = ['titulo', 'autor', 'generos', 'editorial', 'stock'];
 
 // Largos de las columnas VARCHAR de la tabla libros
 const LARGO_MAXIMO = { titulo: 255, autor: 150, editorial: 150, idioma: 50 };
