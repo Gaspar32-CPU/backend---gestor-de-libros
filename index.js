@@ -42,6 +42,7 @@ import {
 } from './repos.js'
 
 import isbnRoutes from './routes/isbn.routes.js'
+import importarLibrosRoutes from './routes/importarLibros.routes.js'
 import { limpiarIsbn } from './services/isbn/validacion.js'
 import {
   notificarNuevoPrestamo,
@@ -129,6 +130,10 @@ const sinImplementar = (req, res) =>
 // importaba pero nunca se montaba, así que la búsqueda por ISBN caía
 // siempre en el 404 genérico del final del archivo.
 app.use('/api/libros', isbnRoutes)
+
+// Importación masiva desde Excel: POST /api/libros/importar (ver
+// routes/importarLibros.routes.js). Va antes de las rutas /api/libros/:id.
+app.use('/api/libros', importarLibrosRoutes)
 
 /* ============================================================
    SALUD
