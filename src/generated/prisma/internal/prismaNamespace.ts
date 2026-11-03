@@ -1177,6 +1177,7 @@ export const LibroScalarFieldEnum = {
   editorial: 'editorial',
   idioma: 'idioma',
   isbn: 'isbn',
+  codigo_interno: 'codigo_interno',
   fecha_pub: 'fecha_pub',
   resumen: 'resumen',
   portada: 'portada',
@@ -1361,6 +1362,7 @@ export const LibroOrderByRelevanceFieldEnum = {
   editorial: 'editorial',
   idioma: 'idioma',
   isbn: 'isbn',
+  codigo_interno: 'codigo_interno',
   resumen: 'resumen',
   portada: 'portada'
 } as const

@@ -46,6 +46,7 @@ export type LibroMinAggregateOutputType = {
   editorial: string | null
   idioma: string | null
   isbn: string | null
+  codigo_interno: string | null
   fecha_pub: Date | null
   resumen: string | null
   portada: string | null
@@ -62,6 +63,7 @@ export type LibroMaxAggregateOutputType = {
   editorial: string | null
   idioma: string | null
   isbn: string | null
+  codigo_interno: string | null
   fecha_pub: Date | null
   resumen: string | null
   portada: string | null
@@ -79,6 +81,7 @@ export type LibroCountAggregateOutputType = {
   editorial: number
   idioma: number
   isbn: number
+  codigo_interno: number
   fecha_pub: number
   resumen: number
   portada: number
@@ -109,6 +112,7 @@ export type LibroMinAggregateInputType = {
   editorial?: true
   idioma?: true
   isbn?: true
+  codigo_interno?: true
   fecha_pub?: true
   resumen?: true
   portada?: true
@@ -125,6 +129,7 @@ export type LibroMaxAggregateInputType = {
   editorial?: true
   idioma?: true
   isbn?: true
+  codigo_interno?: true
   fecha_pub?: true
   resumen?: true
   portada?: true
@@ -142,6 +147,7 @@ export type LibroCountAggregateInputType = {
   editorial?: true
   idioma?: true
   isbn?: true
+  codigo_interno?: true
   fecha_pub?: true
   resumen?: true
   portada?: true
@@ -246,6 +252,7 @@ export type LibroGroupByOutputType = {
   editorial: string | null
   idioma: string | null
   isbn: string | null
+  codigo_interno: string | null
   fecha_pub: Date | null
   resumen: string | null
   portada: string | null
@@ -286,6 +293,7 @@ export type LibroWhereInput = {
   editorial?: Prisma.StringNullableFilter<"Libro"> | string | null
   idioma?: Prisma.StringNullableFilter<"Libro"> | string | null
   isbn?: Prisma.StringNullableFilter<"Libro"> | string | null
+  codigo_interno?: Prisma.StringNullableFilter<"Libro"> | string | null
   fecha_pub?: Prisma.DateTimeNullableFilter<"Libro"> | Date | string | null
   resumen?: Prisma.StringNullableFilter<"Libro"> | string | null
   portada?: Prisma.StringNullableFilter<"Libro"> | string | null
@@ -308,6 +316,7 @@ export type LibroOrderByWithRelationInput = {
   editorial?: Prisma.SortOrderInput | Prisma.SortOrder
   idioma?: Prisma.SortOrderInput | Prisma.SortOrder
   isbn?: Prisma.SortOrderInput | Prisma.SortOrder
+  codigo_interno?: Prisma.SortOrderInput | Prisma.SortOrder
   fecha_pub?: Prisma.SortOrderInput | Prisma.SortOrder
   resumen?: Prisma.SortOrderInput | Prisma.SortOrder
   portada?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -334,6 +343,7 @@ export type LibroWhereUniqueInput = Prisma.AtLeast<{
   editorial?: Prisma.StringNullableFilter<"Libro"> | string | null
   idioma?: Prisma.StringNullableFilter<"Libro"> | string | null
   isbn?: Prisma.StringNullableFilter<"Libro"> | string | null
+  codigo_interno?: Prisma.StringNullableFilter<"Libro"> | string | null
   fecha_pub?: Prisma.DateTimeNullableFilter<"Libro"> | Date | string | null
   resumen?: Prisma.StringNullableFilter<"Libro"> | string | null
   portada?: Prisma.StringNullableFilter<"Libro"> | string | null
@@ -356,6 +366,7 @@ export type LibroOrderByWithAggregationInput = {
   editorial?: Prisma.SortOrderInput | Prisma.SortOrder
   idioma?: Prisma.SortOrderInput | Prisma.SortOrder
   isbn?: Prisma.SortOrderInput | Prisma.SortOrder
+  codigo_interno?: Prisma.SortOrderInput | Prisma.SortOrder
   fecha_pub?: Prisma.SortOrderInput | Prisma.SortOrder
   resumen?: Prisma.SortOrderInput | Prisma.SortOrder
   portada?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -381,6 +392,7 @@ export type LibroScalarWhereWithAggregatesInput = {
   editorial?: Prisma.StringNullableWithAggregatesFilter<"Libro"> | string | null
   idioma?: Prisma.StringNullableWithAggregatesFilter<"Libro"> | string | null
   isbn?: Prisma.StringNullableWithAggregatesFilter<"Libro"> | string | null
+  codigo_interno?: Prisma.StringNullableWithAggregatesFilter<"Libro"> | string | null
   fecha_pub?: Prisma.DateTimeNullableWithAggregatesFilter<"Libro"> | Date | string | null
   resumen?: Prisma.StringNullableWithAggregatesFilter<"Libro"> | string | null
   portada?: Prisma.StringNullableWithAggregatesFilter<"Libro"> | string | null
@@ -396,6 +408,7 @@ export type LibroCreateInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -418,6 +431,7 @@ export type LibroUncheckedCreateInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -437,6 +451,7 @@ export type LibroUpdateInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -459,6 +474,7 @@ export type LibroUncheckedUpdateInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -480,6 +496,7 @@ export type LibroCreateManyInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -495,6 +512,7 @@ export type LibroUpdateManyMutationInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -512,6 +530,7 @@ export type LibroUncheckedUpdateManyInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -545,6 +564,7 @@ export type LibroCountOrderByAggregateInput = {
   editorial?: Prisma.SortOrder
   idioma?: Prisma.SortOrder
   isbn?: Prisma.SortOrder
+  codigo_interno?: Prisma.SortOrder
   fecha_pub?: Prisma.SortOrder
   resumen?: Prisma.SortOrder
   portada?: Prisma.SortOrder
@@ -567,6 +587,7 @@ export type LibroMaxOrderByAggregateInput = {
   editorial?: Prisma.SortOrder
   idioma?: Prisma.SortOrder
   isbn?: Prisma.SortOrder
+  codigo_interno?: Prisma.SortOrder
   fecha_pub?: Prisma.SortOrder
   resumen?: Prisma.SortOrder
   portada?: Prisma.SortOrder
@@ -583,6 +604,7 @@ export type LibroMinOrderByAggregateInput = {
   editorial?: Prisma.SortOrder
   idioma?: Prisma.SortOrder
   isbn?: Prisma.SortOrder
+  codigo_interno?: Prisma.SortOrder
   fecha_pub?: Prisma.SortOrder
   resumen?: Prisma.SortOrder
   portada?: Prisma.SortOrder
@@ -714,6 +736,7 @@ export type LibroCreateWithoutOrganizacionInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -734,6 +757,7 @@ export type LibroUncheckedCreateWithoutOrganizacionInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -784,6 +808,7 @@ export type LibroScalarWhereInput = {
   editorial?: Prisma.StringNullableFilter<"Libro"> | string | null
   idioma?: Prisma.StringNullableFilter<"Libro"> | string | null
   isbn?: Prisma.StringNullableFilter<"Libro"> | string | null
+  codigo_interno?: Prisma.StringNullableFilter<"Libro"> | string | null
   fecha_pub?: Prisma.DateTimeNullableFilter<"Libro"> | Date | string | null
   resumen?: Prisma.StringNullableFilter<"Libro"> | string | null
   portada?: Prisma.StringNullableFilter<"Libro"> | string | null
@@ -799,6 +824,7 @@ export type LibroCreateWithoutPrestamosInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -820,6 +846,7 @@ export type LibroUncheckedCreateWithoutPrestamosInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -854,6 +881,7 @@ export type LibroUpdateWithoutPrestamosInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -875,6 +903,7 @@ export type LibroUncheckedUpdateWithoutPrestamosInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -893,6 +922,7 @@ export type LibroCreateWithoutReportes_problemasInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -914,6 +944,7 @@ export type LibroUncheckedCreateWithoutReportes_problemasInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -948,6 +979,7 @@ export type LibroUpdateWithoutReportes_problemasInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -969,6 +1001,7 @@ export type LibroUncheckedUpdateWithoutReportes_problemasInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -987,6 +1020,7 @@ export type LibroCreateWithoutResenasInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -1008,6 +1042,7 @@ export type LibroUncheckedCreateWithoutResenasInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -1042,6 +1077,7 @@ export type LibroUpdateWithoutResenasInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1063,6 +1099,7 @@ export type LibroUncheckedUpdateWithoutResenasInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1081,6 +1118,7 @@ export type LibroCreateWithoutReservasInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -1102,6 +1140,7 @@ export type LibroUncheckedCreateWithoutReservasInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -1136,6 +1175,7 @@ export type LibroUpdateWithoutReservasInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1157,6 +1197,7 @@ export type LibroUncheckedUpdateWithoutReservasInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1176,6 +1217,7 @@ export type LibroCreateManyOrganizacionInput = {
   editorial?: string | null
   idioma?: string | null
   isbn?: string | null
+  codigo_interno?: string | null
   fecha_pub?: Date | string | null
   resumen?: string | null
   portada?: string | null
@@ -1191,6 +1233,7 @@ export type LibroUpdateWithoutOrganizacionInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1211,6 +1254,7 @@ export type LibroUncheckedUpdateWithoutOrganizacionInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1231,6 +1275,7 @@ export type LibroUncheckedUpdateManyWithoutOrganizacionInput = {
   editorial?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   idioma?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isbn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  codigo_interno?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   fecha_pub?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   resumen?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   portada?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1306,6 +1351,7 @@ export type LibroSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   editorial?: boolean
   idioma?: boolean
   isbn?: boolean
+  codigo_interno?: boolean
   fecha_pub?: boolean
   resumen?: boolean
   portada?: boolean
@@ -1331,6 +1377,7 @@ export type LibroSelectScalar = {
   editorial?: boolean
   idioma?: boolean
   isbn?: boolean
+  codigo_interno?: boolean
   fecha_pub?: boolean
   resumen?: boolean
   portada?: boolean
@@ -1339,7 +1386,7 @@ export type LibroSelectScalar = {
   fecha_creacion?: boolean
 }
 
-export type LibroOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "id_organizacion" | "titulo" | "autor" | "generos" | "editorial" | "idioma" | "isbn" | "fecha_pub" | "resumen" | "portada" | "stock" | "eliminado" | "fecha_creacion", ExtArgs["result"]["libro"]>
+export type LibroOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "id_organizacion" | "titulo" | "autor" | "generos" | "editorial" | "idioma" | "isbn" | "codigo_interno" | "fecha_pub" | "resumen" | "portada" | "stock" | "eliminado" | "fecha_creacion", ExtArgs["result"]["libro"]>
 export type LibroInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   organizacion?: boolean | Prisma.OrganizacionDefaultArgs<ExtArgs>
   prestamos?: boolean | Prisma.Libro$prestamosArgs<ExtArgs>
@@ -1367,6 +1414,7 @@ export type $LibroPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     editorial: string | null
     idioma: string | null
     isbn: string | null
+    codigo_interno: string | null
     fecha_pub: Date | null
     resumen: string | null
     portada: string | null
@@ -1755,6 +1803,7 @@ export interface LibroFieldRefs {
   readonly editorial: Prisma.FieldRef<"Libro", 'String'>
   readonly idioma: Prisma.FieldRef<"Libro", 'String'>
   readonly isbn: Prisma.FieldRef<"Libro", 'String'>
+  readonly codigo_interno: Prisma.FieldRef<"Libro", 'String'>
   readonly fecha_pub: Prisma.FieldRef<"Libro", 'DateTime'>
   readonly resumen: Prisma.FieldRef<"Libro", 'String'>
   readonly portada: Prisma.FieldRef<"Libro", 'String'>

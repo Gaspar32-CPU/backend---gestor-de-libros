@@ -49,7 +49,7 @@ function fechaValida(fecha) {
 }
 
 /**
- * Lee la hoja "Inventario" y devuelve un objeto por fila con los nombres
+ * Lee todas las hojas y devuelve un objeto por fila con los nombres
  * de campo de la tabla libros. Los campos vacíos quedan en null (generos en []).
  */
 export function leerLibrosDelExcel(ruta = RUTA_POR_DEFECTO) {
@@ -62,26 +62,27 @@ export function leerLibrosDelBuffer(buffer) {
 }
 
 function librosDelWorkbook(workbook) {
-  // Se usa la hoja "Inventario"; si el archivo no la tiene, la primera hoja
-  const hoja = workbook.Sheets['Inventario'] ?? workbook.Sheets[workbook.SheetNames[0]];
-  const filas = XLSX.utils.sheet_to_json(hoja);
+  // Se recorren todas las hojas del archivo
+  return workbook.SheetNames.flatMap((nombreHoja) => {
+    const filas = XLSX.utils.sheet_to_json(workbook.Sheets[nombreHoja]);
 
-  return filas.map((fila, i) => {
-    const genero = textoOnull(fila['Género']);
+    return filas.map((fila, i) => {
+      const genero = textoOnull(fila['Género']);
 
-    return {
-      // +2: la fila 1 son los encabezados y los índices arrancan en 0
-      filaExcel: i + 2,
-      titulo: textoOnull(fila['Libro']),
-      autor: textoOnull(fila['Autor']),
-      generos: genero ? [genero] : [],
-      editorial: textoOnull(fila['Editorial']),
-      isbn: textoOnull(fila['ISBN'])?.replace(/\s/g, '') ?? null,
-      codigo_interno: textoOnull(fila['Código interno']),
-      fecha_pub: fechaOnull(fila['Fecha de publicación']),
-      idioma: textoOnull(fila['Idioma']),
-      stock: numeroOnull(fila['Stock']),
-    };
+      return {
+        hoja: nombreHoja,
+        filaExcel: i + 2,
+        titulo: textoOnull(fila['Libro']),
+        autor: textoOnull(fila['Autor']),
+        generos: genero ? [genero] : [],
+        editorial: textoOnull(fila['Editorial']),
+        isbn: textoOnull(fila['ISBN'])?.replace(/\s/g, '') ?? null,
+        codigo_interno: textoOnull(fila['Código interno']),
+        fecha_pub: fechaOnull(fila['Fecha de publicación']) || new Date().toISOString().slice(0, 10),
+        idioma: textoOnull(fila['Idioma']) || "Español",
+        stock: numeroOnull(fila['Stock']) || 1,
+      };
+    });
   });
 }
 
@@ -185,7 +186,7 @@ export function completarConIsbn(libro, datos) {
 }
 
 function rechazo(libro, problemas) {
-  return { fila: libro.filaExcel, titulo: libro.titulo, problemas };
+  return { hoja: libro.hoja, fila: libro.filaExcel, titulo: libro.titulo, problemas };
 }
 
 /**
