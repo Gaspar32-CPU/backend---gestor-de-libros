@@ -79,7 +79,7 @@ function librosDelWorkbook(workbook) {
         editorial: textoOnull(fila['Editorial']),
         isbn: textoOnull(fila['ISBN'])?.replace(/\s/g, '') ?? null,
         codigo_interno: textoOnull(fila['Código interno']),
-        fecha_pub: fechaOnull(fila['Fecha de publicación']) || new Date().toISOString().slice(0, 10),
+        fecha_pub: fechaOnull(fila['Fecha de publicación']),
         idioma: textoOnull(fila['Idioma']) || "Español",
         stock: numeroOnull(fila['Stock']) || 1,
       };
@@ -192,8 +192,7 @@ function rechazo(libro, problemas) {
 
 /**
  * Validación contra la base: ISBN repetido y código interno repetido (igual que
- * POST /api/libros), y asignación del código interno que falta: el más alto de
- * la organización + 1.
+ * POST /api/libros).
  */
 async function validarContraBase(completos, rechazados, idOrganizacion) {
   const [existentes] = await pool.query(
@@ -224,18 +223,6 @@ async function validarContraBase(completos, rechazados, idOrganizacion) {
     if (isbn) isbns.add(isbn);
     if (libro.codigo_interno) codigos.add(libro.codigo_interno);
     listos.push({ ...libro, isbn });
-  }
-
-  // Los códigos del documento y los de la base cuentan para el máximo
-  let maximo = 0;
-  for (const codigo of codigos) {
-    if (/^\d{1,15}$/.test(codigo)) maximo = Math.max(maximo, Number(codigo));
-  }
-  for (const libro of listos) {
-    if (!libro.codigo_interno) {
-      maximo += 1;
-      libro.codigo_interno = String(maximo);
-    }
   }
 
   return listos;
