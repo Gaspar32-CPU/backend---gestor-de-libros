@@ -72,6 +72,7 @@ model Libro {
   editorial          String?              @db.VarChar(150)
   idioma             String?              @db.VarChar(50)
   isbn               String?              @db.VarChar(20)
+  codigo_interno     String?              @db.VarChar(50)
   fecha_pub          DateTime?            @db.Date
   resumen            String?              @db.Text
   portada            String?              @db.VarChar(255)
