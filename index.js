@@ -42,6 +42,8 @@ import {
 } from './repos.js'
 
 import isbnRoutes from './routes/isbn.routes.js'
+import importarLibrosRoutes from './routes/importarLibros.routes.js'
+import { limpiarIsbn } from './services/isbn/validacion.js'
 import {
   notificarNuevoPrestamo,
   notificarInvitacion,
@@ -128,6 +130,10 @@ const sinImplementar = (req, res) =>
 // importaba pero nunca se montaba, así que la búsqueda por ISBN caía
 // siempre en el 404 genérico del final del archivo.
 app.use('/api/libros', isbnRoutes)
+
+// Importación masiva desde Excel: POST /api/libros/importar (ver
+// routes/importarLibros.routes.js). Va antes de las rutas /api/libros/:id.
+app.use('/api/libros', importarLibrosRoutes)
 
 /* ============================================================
    SALUD
@@ -1357,6 +1363,27 @@ function normalizarGeneros(valor) {
     .filter(Boolean)
 }
 
+// Devuelve un libro con los mismos campos calculados que el listado
+// (disponibles, promedio_estrellas, total_resenas), para que el front no
+// reciba undefined al crear o editar.
+async function obtenerLibroConDisponibles(id) {
+  const [[libro]] = await pool.query(
+    `SELECT l.*,
+            GREATEST(CAST(l.stock AS SIGNED) - COALESCE(p.activos, 0), 0) AS disponibles,
+            ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
+            COALESCE(r.total, 0) AS total_resenas
+     FROM libros l
+     LEFT JOIN (SELECT id_libro, COUNT(*) AS activos FROM prestamos
+                WHERE estado IN ('pendiente_retiro','activo','atrasado')
+                GROUP BY id_libro) p ON p.id_libro = l.id
+     LEFT JOIN (SELECT id_libro, AVG(calificacion) AS promedio, COUNT(*) AS total FROM resenas
+                GROUP BY id_libro) r ON r.id_libro = l.id
+     WHERE l.id = ?`,
+    [id],
+  )
+  return libro
+}
+
 // POST /api/libros - Crear un nuevo libro (admin)
 app.post(
   '/api/libros',
@@ -1369,6 +1396,7 @@ app.post(
       generos,
       editorial,
       idioma,
+      codigo_interno,
       isbn,
       fecha_pub,
       resumen,
@@ -1377,18 +1405,62 @@ app.post(
     } = req.body ?? {}
 
     const listaGeneros = normalizarGeneros(generos)
-    if (!titulo || !autor || listaGeneros.length === 0) {
+    if (!titulo || !autor || listaGeneros.length === 0 || !editorial || !stock) {
       return res.status(400).json({
         error: 'faltan_campos',
-        mensaje: 'Faltan campos obligatorios: titulo, autor, generos',
+        mensaje: 'Faltan campos obligatorios: titulo, autor, generos, editorial, stock',
       })
+    }
+    if (fecha_pub && Number(String(fecha_pub).slice(0, 4)) > new Date().getFullYear()) {
+      return res.status(400).json({
+        error: 'fecha_invalida',
+        mensaje: 'El año de publicación no puede ser posterior al año actual',
+      })
+    }
+
+    if (codigo_interno != null && (typeof codigo_interno !== 'string' || codigo_interno.length > 50)) {
+      return res.status(400).json({
+        error: 'codigo_interno_invalido',
+        mensaje: 'El código interno debe ser un texto de hasta 50 caracteres',
+      })
+    }
+
+    const [existe] = await pool.query(
+      `select * from libros where codigo_interno = ? AND id_organizacion = ? AND eliminado = FALSE`,
+      [
+        codigo_interno?.trim() || null,
+        req.usuario.organizacionId,
+      ],
+    )
+    if (existe.length > 0 && existe[0].id != req.params.id) {
+      return res.status(400).json({
+        error: 'codigo_interno_duplicado',
+        mensaje: `El código interno ya está en uso por otro libro: ${existe[0].titulo}`,
+      })
+    }
+
+    const isbnLimpio = isbn ? limpiarIsbn(isbn) : null
+
+    if (isbnLimpio) {
+      const [isbnExistente] = await pool.query(
+        `SELECT id FROM libros
+        WHERE REPLACE(REPLACE(isbn, '-', ''), ' ', '') = ?
+          AND id_organizacion = ? AND eliminado = FALSE`,
+        [isbnLimpio, req.usuario.organizacionId],
+      )
+      if (isbnExistente.length > 0) {
+        return res.status(400).json({
+          error: 'libro_existente',
+          mensaje: 'El libro con ese ISBN ya existe',
+        })
+      }
     }
 
     try {
       const [resultado] = await pool.query(
         `INSERT INTO libros
-         (id_organizacion, titulo, autor, generos, editorial, idioma, isbn, fecha_pub, resumen, portada, stock)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_organizacion, titulo, autor, generos, editorial, idioma, codigo_interno, isbn, fecha_pub, resumen, portada, stock)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.usuario.organizacionId,
           titulo,
@@ -1396,7 +1468,8 @@ app.post(
           JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
-          isbn ?? null,
+          codigo_interno?.trim() || null,
+          isbn ? limpiarIsbn(isbn) : null,
           fecha_pub ?? null,
           resumen ?? null,
           portada ?? null,
@@ -1404,10 +1477,7 @@ app.post(
         ],
       )
 
-      const [rows] = await pool.query('SELECT * FROM libros WHERE id = ?', [
-        resultado.insertId,
-      ])
-      const libroCreado = rows[0]
+      const libroCreado = await obtenerLibroConDisponibles(resultado.insertId)
 
       if (!libroCreado) {
         return res
@@ -1427,9 +1497,9 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
   try {
     const { busqueda, generos } = req.query
     let sql = `
-      SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
+      SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.codigo_interno, l.fecha_pub,
              l.resumen, l.portada, l.fecha_creacion, l.stock,
-             l.stock - COALESCE(p.activos, 0) AS disponibles,
+             GREATEST(CAST(l.stock AS SIGNED) - COALESCE(p.activos, 0), 0) AS disponibles,
              ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
              COALESCE(r.total, 0) AS total_resenas
       FROM libros l
@@ -1462,9 +1532,9 @@ app.get('/api/libros', verificarToken, async (req, res, next) => {
 app.get('/api/libros/:id', verificarToken, async (req, res, next) => {
   try {
     const [[libro]] = await pool.query(
-      `SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.fecha_pub,
+      `SELECT l.id, l.titulo, l.autor, l.generos, l.editorial, l.idioma, l.isbn, l.codigo_interno, l.fecha_pub,
               l.resumen, l.portada, l.stock,
-              l.stock - COALESCE(p.activos, 0) AS disponibles,
+              GREATEST(CAST(l.stock AS SIGNED) - COALESCE(p.activos, 0), 0) AS disponibles,
               ROUND(COALESCE(r.promedio, 0), 2) AS promedio_estrellas,
               EXISTS (SELECT 1 FROM prestamos mp
                       WHERE mp.id_libro = l.id AND mp.id_usuario = ?
@@ -1595,6 +1665,7 @@ app.put(
       generos,
       editorial,
       idioma,
+      codigo_interno,
       isbn,
       fecha_pub,
       resumen,
@@ -1609,11 +1680,39 @@ app.put(
         mensaje: 'Faltan campos obligatorios: titulo, autor, generos',
       })
     }
+    const stockNum = Number(stock)
+    if (!Number.isInteger(stockNum) || stockNum < 0) {
+      return res.status(400).json({
+        error: 'stock_invalido',
+        mensaje: 'El stock debe ser un entero mayor o igual a 0',
+      })
+    }
+
+    if (codigo_interno != null && (typeof codigo_interno !== 'string' || codigo_interno.length > 50)) {
+      return res.status(400).json({
+        error: 'codigo_interno_invalido',
+        mensaje: 'El código interno debe ser un texto de hasta 50 caracteres',
+      })
+    }
+
+    const [existe] = await pool.query(
+      `select * from libros where codigo_interno = ? AND id_organizacion = ? AND eliminado = FALSE`,
+      [
+        codigo_interno?.trim() || null,
+        req.usuario.organizacionId,
+      ],
+    )
+    if (existe.length > 0 && existe[0].id != req.params.id) {
+      return res.status(400).json({
+        error: 'codigo_interno_duplicado',
+        mensaje: `El código interno ya está en uso por otro libro: ${existe[0].titulo}`,
+      })
+    }
 
     try {
       const [resultado] = await pool.query(
         `UPDATE libros
-       SET titulo = ?, autor = ?, generos = ?, editorial = ?, idioma = ?, isbn = ?, fecha_pub = ?,
+       SET titulo = ?, autor = ?, generos = ?, editorial = ?, idioma = ?, isbn = ?, codigo_interno = ?, fecha_pub = ?,
            resumen = ?, portada = ?, stock = ?
        WHERE id = ? AND id_organizacion = ? AND eliminado = FALSE`,
         [
@@ -1622,7 +1721,8 @@ app.put(
           JSON.stringify(listaGeneros),
           editorial ?? null,
           idioma ?? null,
-          isbn ?? null,
+          isbn ? limpiarIsbn(isbn) : null,
+          codigo_interno?.trim() || null,
           fecha_pub ?? null,
           resumen ?? null,
           portada ?? null,
@@ -1638,10 +1738,7 @@ app.put(
           .json({ error: 'no_encontrado', mensaje: 'Libro no encontrado' })
       }
 
-      const [[libroActualizado]] = await pool.query(
-        'SELECT * FROM libros WHERE id = ?',
-        [req.params.id],
-      )
+      const libroActualizado = await obtenerLibroConDisponibles(req.params.id)
 
       res.json(libroActualizado)
     } catch (err) {
