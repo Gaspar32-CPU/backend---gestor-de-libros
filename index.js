@@ -2090,8 +2090,6 @@ app.patch(
   },
 )
 
-const MAX_PRESTAMOS_ACTIVOS = 5
-
 // POST /api/prestamos - Crear un nuevo préstamo (cualquier usuario autenticado)
 app.post('/api/prestamos', verificarToken, async (req, res, next) => {
   try {
@@ -2129,21 +2127,25 @@ app.post('/api/prestamos', verificarToken, async (req, res, next) => {
          AND estado IN ('pendiente_retiro','activo','atrasado')`,
       [usuarioId],
     )
-    if (activos >= MAX_PRESTAMOS_ACTIVOS) {
-      return res.status(409).json({
-        error: 'limite_prestamos',
-        mensaje: `Ya tenés ${MAX_PRESTAMOS_ACTIVOS} libros prestados, que es el máximo. Devolvé alguno para pedir otro.`,
-      })
-    }
 
     // El plazo y el lugar de retiro son configurables por organización
     // (tabla configuraciones), por eso no se reciben del cliente: se buscan acá.
     const [[configuracion]] = await pool.query(
-      `SELECT dias_prestamo, lugar_retiro, lugar_devolucion, horarios,
+      `SELECT dias_prestamo, lugar_retiro, lugar_devolucion, max_libros_por_usuario, horarios,
               permite_extension, max_extensiones, dias_extension
        FROM configuraciones WHERE id_organizacion = ?`,
       [req.usuario.organizacionId],
     )
+
+    const MAX_PRESTAMOS_ACTIVOS = configuracion?.max_libros_por_usuario ?? 5
+
+    if (activos >= MAX_PRESTAMOS_ACTIVOS) {
+      return res.status(409).json({
+        error: 'limite_prestamos',
+        mensaje: `Ya tenés ${MAX_PRESTAMOS_ACTIVOS} libros prestados, el máximo de tu organización. Devolvé alguno para pedir otro.`,
+      })
+    }
+    
     const diasPrestamo = configuracion?.dias_prestamo ?? 30
     const lugarRetiro = configuracion?.lugar_retiro ?? null
     // Si el día que se cumple el plazo la organización está cerrada, la
