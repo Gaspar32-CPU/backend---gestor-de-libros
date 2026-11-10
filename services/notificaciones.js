@@ -26,7 +26,10 @@ async function obtenerDatosPrestamo({
 }) {
   const [[[libro]], [[usuario]], [admins], [[prestamo]]] = await Promise.all([
     pool.query('SELECT titulo FROM libros WHERE id = ?', [idLibro]),
-    pool.query('SELECT nombre, email, activo, notificaciones_activadas FROM usuarios WHERE id = ?', [idUsuario]),
+    pool.query(
+      'SELECT nombre, email, activo, notificaciones_activadas FROM usuarios WHERE id = ?',
+      [idUsuario],
+    ),
     pool.query(
       "SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion' AND activo = 1 AND notificaciones_activadas = 1",
       [idOrganizacion],
