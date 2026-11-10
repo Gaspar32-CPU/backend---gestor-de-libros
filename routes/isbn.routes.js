@@ -4,6 +4,8 @@ import {
   limpiarIsbn,
   isbnEsValido,
 } from '../services/isbn/index.js'
+import { pool } from '../db.js'
+import { verificarToken } from '../middlewares/auth.js'
 
 const router = Router()
 
@@ -19,7 +21,7 @@ const router = Router()
  *   404 - El ISBN es válido pero ninguna fuente lo conoce.
  *   503 - Las fuentes externas no responden. El front ofrece carga manual.
  */
-router.get('/isbn/:isbn', async (req, res) => {
+router.get('/isbn/:isbn', verificarToken, async (req, res) => {
   const isbn = limpiarIsbn(req.params.isbn)
 
   if (!isbnEsValido(isbn)) {
@@ -37,6 +39,20 @@ router.get('/isbn/:isbn', async (req, res) => {
       return res.status(404).json({
         error: 'no_encontrado',
         mensaje: 'Ninguna fuente tiene datos para este ISBN.',
+      })
+    }
+
+    const [isbnExistente] = await pool.query(
+      `SELECT id FROM libros
+      WHERE REPLACE(REPLACE(isbn, '-', ''), ' ', '') = ?
+        AND id_organizacion = ? AND eliminado = FALSE`,
+      [isbn, req.usuario.organizacionId],
+    )
+  
+    if (isbnExistente.length > 0) {
+      return res.status(400).json({
+        error: 'libro_existente',
+        mensaje: 'El libro con ese ISBN ya existe',
       })
     }
 
