@@ -26,7 +26,8 @@ const usuarioDeDB = (fila) => ({
   correo: fila.email,
   telefono: fila.telefono,
   foto: fila.foto,
-  notificacionesActivadas: fila.notificaciones_activadas === 1 ? 'TRUE' : 'FALSE',
+  notificacionesActivadas:
+    fila.notificaciones_activadas === 1 ? 'TRUE' : 'FALSE',
   contrasena: fila.contrasena,
   fecharegistro: fila.fecha_registro,
   rol: ROL_DB_A_APP[fila.rol] ?? fila.rol,
@@ -180,7 +181,7 @@ export async function actualizarUsuario({
   apellido,
   telefono,
   contrasena,
-  notificacionesActivadas
+  notificacionesActivadas,
 }) {
   if (contrasena) {
     const [resultado] = await pool.query(
