@@ -45,6 +45,32 @@ async function obtenerDatosPrestamo({
   }
 }
 
+async function obtenerPrestamosPorVencer({
+  idPrestamo,
+  idUsuario,
+  idOrganizacion,
+}) {
+  const [[[libros]], [[usuario]], [admins], [[prestamo]]] = await Promise.all([
+    pool.query('SELECT * FROM libros WHERE fecha_devolucion_esperada BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)'),
+    pool.query('SELECT nombre, email, activo, notificaciones_activadas FROM usuarios WHERE id = ?', [idUsuario]),
+    pool.query(
+      "SELECT id, email FROM usuarios WHERE id_organizacion = ? AND rol = 'admin_organizacion' AND activo = 1 AND notificaciones_activadas = 1",
+      [idOrganizacion],
+    ),
+    pool.query(
+      'SELECT id, fecha_devolucion_esperada, extensiones_realizadas FROM prestamos WHERE id = ? AND id_organizacion = ?',
+      [idPrestamo, idOrganizacion],
+    ),
+  ])
+
+  return {
+    libroPorVencer: libros,
+    usuario,
+    admins,
+    prestamo,
+  }
+}
+
 /**
  * El usuario solo recibe avisos si sigue activo y no los desactivó.
  * Si no se encontró el usuario, tampoco se le avisa.
@@ -138,6 +164,52 @@ function procesarEnviosEnSegundoPlano(envios, idPrestamo) {
  * de que un usuario pidió un libro, para que lo tengan pendiente de entrega.
  */
 export async function notificarExtensionPrestamo({
+  idPrestamo,
+  idLibro,
+  idUsuario,
+  idOrganizacion,
+}) {
+  const { tituloLibro, usuario, admins, prestamo } = await obtenerDatosPrestamo(
+    { idLibro, idPrestamo, idUsuario, idOrganizacion },
+  )
+
+  const mensajeParaAdmin = `${usuario?.nombre ?? 'Un usuario'} solicitó la extensión del préstamo de "${tituloLibro}" y la fecha de devolucion es el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible'}.`
+  const mensajeParaSolicitante = `Registramos tu solicitud de extensión del préstamo de "${tituloLibro}". Se extendió hasta el ${prestamo?.fecha_devolucion_esperada?.toLocaleDateString() ?? 'fecha no disponible consulta con el administrador de tu institución'}.`
+
+  const envios = []
+
+  for (const admin of admins) {
+    envios.push(
+      await crearEnvio({
+        idUsuario: admin.id,
+        idPrestamo,
+        tipo: 'extension_prestamo',
+        mensaje: mensajeParaAdmin,
+        para: admin.email,
+        asunto: 'Extensión de préstamo',
+        titulo: 'Extensión de préstamo',
+      }),
+    )
+  }
+
+  if (usuario?.email && quiereNotificaciones(usuario)) {
+    envios.push(
+      await crearEnvio({
+        idUsuario,
+        idPrestamo,
+        tipo: 'extension_prestamo',
+        mensaje: mensajeParaSolicitante,
+        para: usuario.email,
+        asunto: 'Extensión de préstamo',
+        titulo: 'Extensión de préstamo',
+      }),
+    )
+  }
+
+  procesarEnviosEnSegundoPlano(envios, idPrestamo)
+}
+
+export async function notificarPrestamoPorVencer({
   idPrestamo,
   idLibro,
   idUsuario,
