@@ -72,6 +72,14 @@ if (!process.env.JWT_SECRET) {
   process.exit(1)
 }
 
+// Se activa en el .env (BLOQUEAR_REGISTRO_PUBLICO=true) para cerrar el alta
+// pública cerca de la Demo, y evitar que cualquiera con un correo del
+// dominio se registre con nombres poco apropiados. Solo bloquea el alta
+// pública (POST /api/auth/register); no afecta la invitación de usuarios
+// por un admin (POST /api/usuarios), que ya requiere estar autenticado.
+const REGISTRO_PUBLICO_BLOQUEADO =
+  process.env.BLOQUEAR_REGISTRO_PUBLICO === 'true'
+
 app.use(cors())
 
 // Archivos subidos (por ahora, logos de organizaciones). nosniff evita que el
@@ -686,6 +694,13 @@ const COOLDOWN_REGISTRO_PENDIENTE_MS = 60 * 1000
 // y se manda un email con el link para crearla (POST /auth/crear-contrasena).
 // Abrir ese link es lo que valida que el correo es de quien se registró.
 app.post('/api/auth/register', async (req, res) => {
+  if (REGISTRO_PUBLICO_BLOQUEADO) {
+    return res.status(403).json({
+      code: 'REGISTRO_DESHABILITADO',
+      message: 'El registro público está deshabilitado temporalmente',
+    })
+  }
+
   const {
     nombre,
     apellido,
@@ -1021,12 +1036,16 @@ app.put('/api/usuarios/:id', verificarToken, async (req, res, next) => {
   // El frontend (perfilService.js) ya valida la confirmación de contraseña
   // en el cliente antes de llamar a este endpoint, así que acá solo llega
   // "contrasena" (sin repetir).
-  const { nombre, apellido, telefono, contrasena, notificacionesActivadas } = req.body ?? {}
+  const { nombre, apellido, telefono, contrasena, notificacionesActivadas } =
+    req.body ?? {}
 
   if (
-    typeof nombre !== 'string' || !nombre.trim() ||
-    typeof apellido !== 'string' || !apellido.trim() ||
-    typeof telefono !== 'string' || !telefono.trim()
+    typeof nombre !== 'string' ||
+    !nombre.trim() ||
+    typeof apellido !== 'string' ||
+    !apellido.trim() ||
+    typeof telefono !== 'string' ||
+    !telefono.trim()
   ) {
     return res.status(400).json({
       error: 'faltan_campos',
@@ -1107,9 +1126,7 @@ app.post(
       await actualizarFotoUsuario(req.usuarioEditado.id, url)
       borrarArchivoFoto(req.usuarioEditado.foto)
 
-      const usuarioActualizado = await buscarUsuarioPorId(
-        req.usuarioEditado.id,
-      )
+      const usuarioActualizado = await buscarUsuarioPorId(req.usuarioEditado.id)
       const { contrasena, ...usuarioSinContrasena } = usuarioActualizado
       res.json(usuarioSinContrasena)
     } catch (err) {
@@ -1130,9 +1147,7 @@ app.delete(
       await actualizarFotoUsuario(req.usuarioEditado.id, null)
       borrarArchivoFoto(req.usuarioEditado.foto)
 
-      const usuarioActualizado = await buscarUsuarioPorId(
-        req.usuarioEditado.id,
-      )
+      const usuarioActualizado = await buscarUsuarioPorId(req.usuarioEditado.id)
       const { contrasena, ...usuarioSinContrasena } = usuarioActualizado
       res.json(usuarioSinContrasena)
     } catch (err) {
@@ -1165,13 +1180,12 @@ app.post('/api/auth/login', async (req, res) => {
     })
   }
 
-  if (usuarioElegido.activo === "INACTIVO") {
+  if (usuarioElegido.activo === 'INACTIVO') {
     return res.status(401).json({
       code: 'USUARIO_INACTIVO',
       message: 'El usuario no está activo',
     })
   }
-  
 
   // Cuenta (registrada o invitada por un admin) que todavía no pasó por
   // /auth/crear-contrasena: no hay hash contra el cual comparar.
@@ -1405,20 +1419,33 @@ app.post(
     } = req.body ?? {}
 
     const listaGeneros = normalizarGeneros(generos)
-    if (!titulo || !autor || listaGeneros.length === 0 || !editorial || !stock) {
+    if (
+      !titulo ||
+      !autor ||
+      listaGeneros.length === 0 ||
+      !editorial ||
+      !stock
+    ) {
       return res.status(400).json({
         error: 'faltan_campos',
-        mensaje: 'Faltan campos obligatorios: titulo, autor, generos, editorial, stock',
+        mensaje:
+          'Faltan campos obligatorios: titulo, autor, generos, editorial, stock',
       })
     }
-    if (fecha_pub && Number(String(fecha_pub).slice(0, 4)) > new Date().getFullYear()) {
+    if (
+      fecha_pub &&
+      Number(String(fecha_pub).slice(0, 4)) > new Date().getFullYear()
+    ) {
       return res.status(400).json({
         error: 'fecha_invalida',
         mensaje: 'El año de publicación no puede ser posterior al año actual',
       })
     }
 
-    if (codigo_interno != null && (typeof codigo_interno !== 'string' || codigo_interno.length > 50)) {
+    if (
+      codigo_interno != null &&
+      (typeof codigo_interno !== 'string' || codigo_interno.length > 50)
+    ) {
       return res.status(400).json({
         error: 'codigo_interno_invalido',
         mensaje: 'El código interno debe ser un texto de hasta 50 caracteres',
@@ -1427,10 +1454,7 @@ app.post(
 
     const [existe] = await pool.query(
       `select * from libros where codigo_interno = ? AND id_organizacion = ? AND eliminado = FALSE`,
-      [
-        codigo_interno?.trim() || null,
-        req.usuario.organizacionId,
-      ],
+      [codigo_interno?.trim() || null, req.usuario.organizacionId],
     )
     if (existe.length > 0 && existe[0].id != req.params.id) {
       return res.status(400).json({
@@ -1688,7 +1712,10 @@ app.put(
       })
     }
 
-    if (codigo_interno != null && (typeof codigo_interno !== 'string' || codigo_interno.length > 50)) {
+    if (
+      codigo_interno != null &&
+      (typeof codigo_interno !== 'string' || codigo_interno.length > 50)
+    ) {
       return res.status(400).json({
         error: 'codigo_interno_invalido',
         mensaje: 'El código interno debe ser un texto de hasta 50 caracteres',
@@ -1697,10 +1724,7 @@ app.put(
 
     const [existe] = await pool.query(
       `select * from libros where codigo_interno = ? AND id_organizacion = ? AND eliminado = FALSE`,
-      [
-        codigo_interno?.trim() || null,
-        req.usuario.organizacionId,
-      ],
+      [codigo_interno?.trim() || null, req.usuario.organizacionId],
     )
     if (existe.length > 0 && existe[0].id != req.params.id) {
       return res.status(400).json({
